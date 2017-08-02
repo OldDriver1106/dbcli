@@ -174,11 +174,7 @@ function table.totable(str)
     else
         done,txt=pcall(txt)
     end
-    if not done then
-        local idx=0
-        str=('\n'..str):gsub('\n',function(s) idx=idx+1;return string.format('\n%4d',idx) end)
-        env.raise('Error while parsing text into Lua table:' ..(err or tostring(txt) or '')..str)
-    end
+    env.checkerr(done,'Error while parsing text into Lua table:' ..(err or tostring(txt) or '')..'\n'..str)
     return txt
 end
 

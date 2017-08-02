@@ -18,7 +18,6 @@
 \jre_mac\
 \temp\
 \ext\
-xmlparserv2.jar
 .sublime-project
 .sublime-workspace
 ANSI32.DLL

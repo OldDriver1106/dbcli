@@ -15,6 +15,7 @@ oracle.module_list={
     "unwrap",
     "sys",
     "show",
+    "exa",
     "chart",
     "ssh",
     "extvars",
@@ -529,14 +530,14 @@ function oracle:get_library()
 end
 
 function oracle:grid_db_call(sqls,args)
-    local stmt={'BEGIN'}
+    local stmt={[[BEGIN]]}
     args=args or {}
     for idx,sql in ipairs(sqls) do
         local typ=self.get_command_type(sql.sql)
         if typ=='SELECT' or typ=='WITH' then
             local cursor='GRID_CURSOR_'..idx
             args[cursor]='#CURSOR'
-            stmt[#stmt+1]='  OPEN :'..cursor..' FOR '..sql.sql..';'
+            stmt[#stmt+1]='  OPEN :'..cursor..' FOR \n        '..sql.sql..';'
         else
             stmt[#stmt+1]=sql.sql..';'
         end

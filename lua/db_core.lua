@@ -772,7 +772,7 @@ function db_core:grid_call(tabs,rows_limit,args)
             elseif #tab>1 then
                 local all,grid_cfg=tab:match("(grid%s*=%s*(%b{}))")
                 if grid_cfg then
-                    tab=tab:replace(all,'',true)
+                    tab=tab:replace(all,'',true):gsub('/%*%s*%*/','')
                     grid_cfg=table.totable(grid_cfg)
                 else
                     grid_cfg={}

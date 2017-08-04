@@ -472,7 +472,7 @@ function snapper:next_exec()
             end
             print(title)
             if #cmd.rs2.rsidx==1 then
-                (cmd.rs2.rsidx[1]):print(nil,nil,nil,cmd.max_rows or cfg.get(self.command.."rows"))
+                (cmd.rs2.rsidx[1]):print(nil,nil,nil,cmd.max_rows and cmd.max_rows+2 or cfg.get(self.command.."rows"))
             else
                 if top_mode then cmd.rs2.max_rows=getHeight(terminal)-3 end
                 env.grid.merge(cmd.rs2,true)

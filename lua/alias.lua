@@ -119,18 +119,18 @@ function alias.set(name, cmd, write)
             return print("Alias '" .. name .. "' is invalid. ")
         end
         cmd = env.COMMAND_SEPS.match(cmd)
-        local target_dir = alias.command_dir
+        local target_dir = alias.db_dir
         local sub_cmd = env.parse_args(2, cmd)[1]:upper()
         if env._CMDS[sub_cmd] then
             local file = env._CMDS[sub_cmd].FILE or ""
             file = file:match('[\\/]([^#]+)')
-            if file == env.CURRENT_DB then target_dir = alias.db_dir end
+            if file ~= env.CURRENT_DB then target_dir = alias.command_dir end
         end
-        
+
         if write ~= false then
             os.remove(alias.command_dir .. name:lower() .. ".alias")
             os.remove(alias.db_dir .. name:lower() .. ".alias")
-            local f = io.open(target_dir .. name:lower() .. ".alias", "w")
+            local f = io.open(alias.db_dir .. name:lower() .. ".alias", "w")
             f:write(cmd)
             f:close()
         end

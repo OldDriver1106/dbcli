@@ -531,6 +531,7 @@ end
 
 function oracle:grid_db_call(sqls,args)
     local stmt={[[BEGIN]]}
+    --stmt[#stmt+1]='BEGIN set transaction isolation level serializable;EXCEPTION WHEN OTHERS THEN NULL;END;'
     args=args or {}
     for idx,sql in ipairs(sqls) do
         local typ=self.get_command_type(sql.sql)

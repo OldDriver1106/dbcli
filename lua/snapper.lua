@@ -304,9 +304,6 @@ function snapper:next_exec()
                         calc_cols[i]='return '..v
                     end
                     if idx then
-                        if not is_groupped and props.topic and elapsed~=1 then
-                            props.topic=props.topic..'(per Second)'
-                        end
                         is_groupped=true
                         if min_agg_pos> idx then
                             min_agg_pos,top_agg=idx,i
@@ -459,12 +456,12 @@ function snapper:next_exec()
                 for k,v in pairs(grid) do rs2[k]=v end
                 setmetatable(rs2,getmetatable(grid))
             end
-
+            local per_second=(cmd.per_second~=nil and cmd.per_second) or self.per_second
+            per_second=(per_second==true or per_second=="on") and '(per Second)' or ''
             local top_mode=cmd.top_mode~=nil and cmd.top_mode or self.top_mode          
             local cost=string.format('(SQL:%.2f  Calc:%.2f)',cmd.fetch_time1+cmd.fetch_time2,os.timer()-calc_clock)
-            local title=string.format('\n[%s#%s]: From %s to %s%s:\n',self.command,name,cmd.starttime,cmd.endtime,
+            local title=string.format('\n$REV$[%s#%s%s]: From %s to %s%s:$NOR$\n',self.command,name,per_second,cmd.starttime,cmd.endtime,
                 env.set.get("debug")~="SNAPPER" and '' or cost)
-            title=title..string.rep("=",title:len()-2)
             if top_mode then
                 title=title:trim("\n")
                 env.ansi.clear_screen()

@@ -3,6 +3,7 @@
     -sql   : Show active sessions(default)
     -latch : Show latch stats
     --[[
+        @CHECK_VERSION: 12.1={}
         @CHECK_ACCESS_ALL: gv$px_session/gv$session/gv$latch/gv$osstat/gv$sysstat/gv$sys_time_model/gv$system_event/gv$active_session_history/gv$sqlstats={true}
         &inst1: default={decode(:V1,'0',''||inst_id,decode(count(distinct inst_id) over(),1,''||inst_id,'A'))}
         &inst2: default={(:V1 IS NULL AND (:snap_cmd is null or inst_id=userenv('instance')) OR :V1=INST_ID OR :V1='0')}
@@ -71,8 +72,7 @@
         WHERE &inst2
         ORDER BY 1]],
       '+',
-      [[
-        SELECT inst,name,sum(pct) "Pct(%)",sum(time) "Time"
+      [[SELECT inst,name,sum(pct) "Pct(%)",sum(time) "Time"
         FROM (
             WITH model as(select /*+materialize*/ * from gv$sys_time_model WHERE &inst2)
             SELECT &inst1  inst, /*grid={topic='System Time Model',max_rows=10,fixed_title=true}*/
@@ -85,7 +85,7 @@
             WHERE  stat_name not in('DB time','background elapsed time'))
         GROUP BY inst,name]],
       '-',
-      [[SELECT ''||inst_id inst, /*grid={topic='OS CPU(%) & Memory',fixed_title=true,include_zero=true,order_by=1}*/
+      [[SELECT ''||inst_id inst, /*grid={topic='OS CPU(%) & Memory',fixed_title=true,include_zero=true,order_by=1,per_second='on'}*/
                MAX(DECODE(stat_name, 'BUSY_TIME', v)) "Busy",
                MAX(DECODE(stat_name, 'USER_TIME', v)) "User",
                MAX(DECODE(stat_name, 'SYS_TIME', v)) "Sys",

@@ -82,6 +82,7 @@ function snapper:after_script()
         self.db:commit()
         cfg.set("feed","back")
         cfg.set("digits","back")
+        cfg.set("sep4k",'back')
     end
 end
 
@@ -135,6 +136,7 @@ function snapper:run_sql(sql,main_args,cmds,files)
     cfg.set("feed","off")
     cfg.set("autocommit","off")
     cfg.set("digits",2)
+    cfg.set("sep4k",'on')
     self.var_context={env.var.backup_context()}
     
     local interval=main_args[1].V1
@@ -239,8 +241,14 @@ function snapper:next_exec()
     local cmds,args,db,clock=self.cmds,self.args,self.db,os.timer()
     --self:trigger('before_exec_action')
     for name,cmd in pairs(cmds) do
-        args[name].snap_interval=os.timer()-cmd.clock
+        self.db.grid_cost=nil
         local rs,clock,starttime,fetch_time1=self:build_data(cmd.sql,args[name])
+        if self.db.grid_cost then 
+            args[name].snap_interval=clock - cmd.clock + self.db.grid_cost
+        else
+            local timer2=os.timer()
+            args[name].snap_interval=timer2-cmd.clock-(timer2-clock)/2
+        end
         if type(cmd.rs2)=="table" and type(rs)=="table" then
             cmd.rs1,cmd.clock,cmd.endtime,cmd.elapsed,cmd.fetch_time1=rs,clock,starttime,clock-cmd.clock,fetch_time1
         end
@@ -255,14 +263,8 @@ function snapper:next_exec()
     for name,cmd in pairs(cmds) do
         if cmd.rs1 and cmd.rs2 then
             local calc_clock,formatter=os.timer(),cmd.column_formatter or {}
-            local defined_formatter={}
-            
             for k,v in pairs(formatter) do
                 define_column(v,'format',k)
-                local cols=v:split('%s*,%s*')
-                for _,col in ipairs(cols) do
-                    defined_formatter[col:upper()]=k
-                end
             end
 
             for idx,_ in ipairs(cmd.rs1.rsidx) do
@@ -309,7 +311,6 @@ function snapper:next_exec()
                             min_agg_pos,top_agg=idx,i
                         end
                         agg_idx[i],title[i]=idx,props.fixed_title  and k  or elapsed~=1 and not props.topic and (k..'/s') or ('*'..k)
-                        define_column(title[i],'format',defined_formatter[title[i]] or defined_formatter[tit] or "%,.2f")
                         if type(order_by)=="string" then
                             if order_by:find(',-'..tit..',',1,true) then
                                 order_by=order_by:replace(',-'..tit..',',',-'..title[i]..',',true)

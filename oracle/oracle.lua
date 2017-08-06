@@ -531,6 +531,7 @@ end
 
 function oracle:grid_db_call(sqls,args)
     local stmt={[[BEGIN]]}
+    local clock=os.timer()
     --stmt[#stmt+1]='BEGIN set transaction isolation level serializable;EXCEPTION WHEN OTHERS THEN NULL;END;'
     args=args or {}
     for idx,sql in ipairs(sqls) do
@@ -545,6 +546,7 @@ function oracle:grid_db_call(sqls,args)
     end
     stmt[#stmt+1]='END;'
     local results=self.super.exec(self,table.concat(stmt,'\n'),args)
+    self.grid_cost=os.timer()-clock
     if type(results)~="table" and type(results)~="userdata" then results=nil end
     for idx,sql in ipairs(sqls) do
         local cursor='GRID_CURSOR_'..idx

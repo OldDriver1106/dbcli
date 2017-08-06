@@ -279,7 +279,7 @@ function grid.format_number(include_head,colinfo,value,rownum)
             elseif grid.digits<38 and scal>0 then
                 v2=math.round(v1,grid.digits)
             end
-            return true,v2 or v1
+            value=v2 or v1
         end
         if tostring(value):find('e',1,true) then return true,string.format('%99.38f',value):gsub(' ',''):gsub('%.?0+$','') end
         return true,value

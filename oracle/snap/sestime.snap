@@ -29,5 +29,6 @@
     calc_rules={avg_ms='[ms]/[count]'},
     per_second="&sec1",
     group_by="inst_id,sid,class#,name",
+    order_by="-ms",
     top_by="name"
 }

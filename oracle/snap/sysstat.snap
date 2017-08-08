@@ -17,6 +17,7 @@
     ]],
     delta_by="value",
     group_by="inst_id,NAME,class",
+    order_by="-value",
     per_second="&sec1",
     top_by="name"
 }

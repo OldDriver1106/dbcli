@@ -21,6 +21,7 @@
     ORDER BY NAME]],
     delta_by="value",
     per_second="&sec1",
+    order_by="-value",
     group_by="inst_id,sid,NAME",
     top_by="name"
 }

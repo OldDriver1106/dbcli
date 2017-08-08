@@ -214,7 +214,7 @@ function grid.show_pivot(rows,col_del)
     for k,v in ipairs(title) do
         table.insert(r,{("%s%-"..maxlen.."s %s%s "):format(hor,grid.format_title(v),nor,del)})
         for i=2,pivot,1 do
-            local _,value=grid.format_number(true,type(v)=="table" and v or {column_name=v},rows[i][keys[v]],i-1)
+            local _,value=grid.format_column(true,type(v)=="table" and v or {column_name=v},rows[i][keys[v]],i-1)
             table.insert(r[k],tostring(value):trim())
         end
     end
@@ -261,7 +261,7 @@ function grid:ctor(include_head)
     self.data=table.new(1000,0)
 end
 
-function grid.format_number(include_head,colinfo,value,rownum)
+function grid.format_column(include_head,colinfo,value,rownum)
     if include_head then
         value=event.callback("ON_COLUMN_VALUE",{colinfo.column_name,value,rownum})[2]
     end
@@ -320,7 +320,7 @@ function grid:add(row)
         if k>grid.maxcol then break end
         local csize,v1,is_number=0,v
         if not colsize[k] then colsize[k] = {0,1} end
-        is_number,v1=grid.format_number(self.include_head,self.colinfo and self.colinfo[k] and self.colinfo[k] or {column_name=#result>0 and result[1][k] or v},v,#result)
+        is_number,v1=grid.format_column(self.include_head,self.colinfo and self.colinfo[k] and self.colinfo[k] or {column_name=#result>0 and result[1]._org[k] or v},v,#result)
         if tostring(v)~=tostring(v1) then v=v1 end
         if is_number then
             csize = #tostring(v)
@@ -470,14 +470,21 @@ function grid:wellform(col_del,row_del)
     local color=env.ansi.get_color
     local nor,hor,hl=color("NOR"),color("HEADCOLOR"),color("GREPCOLOR")
     local head_fmt=fmt
+   
     for k,v in ipairs(colsize) do
         local siz=v[1]
         local del=" "
         if pivot==0 or k~=1+indx and (pivot~=1 or k~=3+indx) then del=col_del end
         if k==#colsize then del=del:gsub("%s+$","") end
-        fmt=fmt.."%"..(siz*v[2]).."s"..del
-        head_fmt=head_fmt..hor.."%"..(siz*v[2]).."s"..nor..del
+        if siz==0 then
+            fmt=fmt.."%s"
+            head_fmt=head_fmt.."%s"
+        else
+            fmt=fmt.."%"..(siz*v[2]).."s"..del
+            head_fmt=head_fmt..hor.."%"..(siz*v[2]).."s"..nor..del
+        end
         table.insert(title_dels, string.rep(result[1][k]~="" and grid.title_del or " ",siz))
+
         if row_del~="" then
             row_dels=row_dels..row_del:rep(siz)..del
         end

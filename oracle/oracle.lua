@@ -522,7 +522,7 @@ function oracle:get_library()
         if #files>0 then
             files[#files+1]=env.join_path(env.WORK_DIR..'/oracle/xdb6.jar')
             loader:addLibrary(env.join_path(home..'/lib'),false)
-            env.luv.os.setenv('LD_LIBRARY_PATH',java.system:getProperty("java.library.path"))
+            env.uv.os.setenv('LD_LIBRARY_PATH',java.system:getProperty("java.library.path"))
             return files
         end
     end

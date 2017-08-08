@@ -15,9 +15,7 @@
     --]]
 ]]*/
 {
-    _attrs=[[
-        SELECT 'System Mutex State Chart' title
-        from dual]],
+    title='System Mutex State Chart',
     _sql=[[
         WITH snap AS
          (SELECT /*+materialize no_expand*/

@@ -43,10 +43,10 @@
                         GROUP  BY inst_id)
                 GROUP  BY ROLLUP(inst_id))
         JOIN   (SELECT nvl(''||inst_id, ' ') inst,
+                        sum(CASE WHEN n IN('physical write total IO requests','physical read total IO requests') THEN v END) IOPs,
                         SUM(DECODE(n, 'cell physical IO interconnect bytes', v)) "BandWidth",
                         SUM(DECODE(n, 'cell physical IO interconnect bytes returned by smart scan', v)) "OflOut",
                         SUM(DECODE(n, 'user calls', v)) "Calls",
-                        sum(CASE WHEN n IN('physical write total IO requests','physical read total IO requests') THEN v END) IOPs,
                         SUM(DECODE(n, 'physical read total bytes', v,'physical write total bytes',v,'redo size',v)) "AllIO",
                         SUM(DECODE(n, 'physical read total bytes', v)) "PhyRead",
                         SUM(DECODE(n, 'physical read total bytes optimized', v)) "OptR(%)",
@@ -94,7 +94,7 @@
     '-',[[/*grid={topic="Cell Throughput",fixed_title=true,order_by='cell'}*/
         SELECT  nvl(c.name,'--TOTAL--') cell,
                 flashCacheMode "flashMode",
-                round(avg(temperatureReading),2) "Temp(C)",
+                round(avg(temperatureReading),2) "ºC",
                 round(avg(cpu),2) "CPU(%)",
                 GREATEST(SUM(largeio + smallio),SUM(ALLIO)) "AllIO",
                 SUM(fd) "FD(%)",

@@ -98,10 +98,10 @@ function grid.fmt(format,...)
             lpad,rpad,pad="","",""
             v=args[idx]
             if not v or type(v)~="string" then return g end
-            local chars,length=v:ulen()
-            local strips=#v-v:strip_len()
-            chars=length-chars+strips
-            if chars>0 then siz=siz+chars end
+            local v1=v:strip_ansi()
+            local chars,length=v1:ulen()
+            local strips=#v-#v1
+            siz=siz+strips+(#v1-length)
             if siz>99 then
                 pad=string.rep(" ",siz-length+strips) or ""
                 if flag~="-" then
@@ -113,7 +113,7 @@ function grid.fmt(format,...)
             end
             return s_format:format(lpad,flag,tostring(siz),rpad)
         end)
-    --print('new',format,',',fmt)
+    --print(fmt,...)
     return fmt:format(...)
 end
 

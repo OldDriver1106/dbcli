@@ -177,7 +177,7 @@ function graph:run_sql(sql,args,cmd,file)
     local function getnum(val)
         if not val then return 0 end
         if type(val)=="number" then return val end
-        local middle=val:match("^.;(.-);.-$")
+        local middle=val:match("^.-;(.-);.-$")
         if middle then
             default_attrs.customBars=true
             return getnum(middle) 

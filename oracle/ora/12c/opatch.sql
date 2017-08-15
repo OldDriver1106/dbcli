@@ -20,7 +20,7 @@ FROM   (SELECT patchset_id,
                seq,
                DECODE(MOD(seq-1, 10), 0, CHR(10), '') sep
         FROM   XMLTABLE('/patches/patch' PASSING dbms_qopatch.GET_OPATCH_LIST COLUMNS --
-                        patchset_id INT PATH 'constituent',
+                        patchset_id VARCHAR2(30) PATH 'constituent',
                         patch_ID INT PATH 'patchID',
                         patch_uid INT PATH 'uniquePatchID',
                         apply_Date VARCHAR2(30) PATH 'appliedDate',

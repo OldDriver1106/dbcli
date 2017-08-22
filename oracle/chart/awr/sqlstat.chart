@@ -16,7 +16,7 @@
             exec={exec "Executions",parses "Parse Calls",loads "Loads",pxe "PX Executions"}
         }
         &LABEL  : time={Seconds per minute}, io={Bytes per Minute}, exec={Count per Minute}
-        &FILTER : default={1=1}, u={PARSING_SCHEMA_NAME=sys_context('userenv','current_schema')},s={PARSING_SCHEMA_NAME='&0'}, f={}
+        &FILTER : default={1=1}, u={PARSING_SCHEMA_NAME=nvl('&0',sys_context('userenv','current_schema'))},s={PARSING_SCHEMA_NAME='&0'}, f={}
         @VER    : 11.2={}, default={--}
     --]]
 ]]*/

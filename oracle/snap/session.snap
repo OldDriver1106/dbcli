@@ -18,7 +18,7 @@
                 AND    s1.SID = s2.sid))}}
         &filter: {
              default={(:V1 IS NULL AND SID=USERENV('SID') or :V1 in(''||sid,sql_id)) and (:V2 IS NULL AND (:snap_cmd is null or inst_id=userenv('instance')) OR :V2=INST_ID OR :V2='0')}
-             u={SCHEMANAME=sys_context('userenv','current_schema')}
+             u={SCHEMANAME=nvl('&0',sys_context('userenv','current_schema'))}
              f={}
         }
 

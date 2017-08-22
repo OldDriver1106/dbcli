@@ -14,6 +14,7 @@ import org.jline.utils.NonBlockingReader;
 import org.jline.utils.OSUtils;
 import org.jline.utils.WCWidth;
 
+import javax.swing.text.Keymap;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;

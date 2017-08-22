@@ -33,7 +33,9 @@ function history:capture(cmd,args,res,is_internal,command_text,clock)
     cmd=cmd:upper()
     if (cmd=="HIS" or cmd=="/" or cmd=="R" or cmd=="HISTORY" or cmd=='ED' or cmd=='EDIT') then return end
     local maxsiz=cfg.get("HISSIZE")
-    local key=command_text:gsub("[%s%z\128\192]+"," "):sub(1,300)
+    local text=table.concat(args," ")
+    if text:find(cmd,1,true)~=1 then text=cmd..' '..text end
+    local key=text:gsub("[%s%z\128\192]+"," "):sub(1,300)
     local k1=key:upper()
     if keys[k1] then
         table.remove(self,keys[k1])

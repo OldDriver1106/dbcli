@@ -11,7 +11,7 @@
    --[[
       @CHECK_VERSION: 11.0={1}
       &option: default={}, l={,sql_exec_id}
-      &filter: default={1=1},f={},l={sql_id=:V1},u={username=sys_context('userenv','current_schema')}
+      &filter: default={1=1},f={},l={sql_id=:V1},u={username=nvl('&0',sys_context('userenv','current_schema'))}
       &format: default={BASIC+PLAN+BINDS},s={ALL-SESSIONS}, a={ALL} 
    --]]
 ]]*/
@@ -20,6 +20,9 @@ set feed off VERIFY off
 var c refcursor;
 var rs CLOB;
 var filename varchar2;
+col ela,queue,cpu,app,cc,cl,plsql,java,io format smhd2
+col read,write format kmg
+
 DECLARE
 BEGIN
     IF :V1 IS NOT NULL AND '&option' IS NULL THEN
@@ -45,13 +48,13 @@ BEGIN
                            to_char(max(last_refresh_time),'MMDD HH24:MI:SS') last_seen,
                            max(sid||',@'||inst_id) keep(dense_rank last order by last_refresh_time) last_sid,
                            max(status) keep(dense_rank last order by last_refresh_time,sid) last_status,
-                           round(SUM(ELAPSED_TIME)*1e-6/60,2) ela, round(SUM(QUEUING_TIME)*1e-6,2) QUEUE, 
-                           round(SUM(CPU_TIME)*1e-6/60,2) CPU, round(SUM(APPLICATION_WAIT_TIME)*1e-6/60,2) app,
-                           round(SUM(CONCURRENCY_WAIT_TIME)*1e-6/60,2) cc, 
-                           round(SUM(CLUSTER_WAIT_TIME)*1e-6/60,2) cl, 
-                           round(SUM(PLSQL_EXEC_TIME)*1e-6/60,2) plsql, 
-                           round(SUM(JAVA_EXEC_TIME)*1e-6/60,2) JAVA, round(SUM(USER_IO_WAIT_TIME)*1e-6/60,2) io,
-                           round(SUM(PHYSICAL_READ_BYTES)/1024/1024,2) read_mb, round(SUM(PHYSICAL_WRITE_BYTES)/1024/1024,2) write_mb,
+                           round(SUM(ELAPSED_TIME)*1e-6,2) ela, round(SUM(QUEUING_TIME)*1e-6,2) QUEUE, 
+                           round(SUM(CPU_TIME)*1e-6,2) CPU, round(SUM(APPLICATION_WAIT_TIME)*1e-6,2) app,
+                           round(SUM(CONCURRENCY_WAIT_TIME)*1e-6,2) cc, 
+                           round(SUM(CLUSTER_WAIT_TIME)*1e-6,2) cl, 
+                           round(SUM(PLSQL_EXEC_TIME)*1e-6,2) plsql, 
+                           round(SUM(JAVA_EXEC_TIME)*1e-6,2) JAVA, round(SUM(USER_IO_WAIT_TIME)*1e-6,2) io,
+                           round(SUM(PHYSICAL_READ_BYTES),2) read, round(SUM(PHYSICAL_WRITE_BYTES),2) write,
                            substr(regexp_replace(regexp_replace(max(sql_text),'^\s+|[' || CHR(10) || CHR(13) || ']'),'\s{2,}',' '),1,200) sql_text
                      FROM   gv$sql_monitor a
                      WHERE  NOT regexp_like(a.process_name, '^[pP]\d+$')

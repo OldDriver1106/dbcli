@@ -108,13 +108,14 @@ function xplan.explain(fmt,sql)
                          )
         order  by r]]
     sql=sql:gsub('@fmt@',fmt)
+    cfg.set("pipequery","off")
     db:query(sql)
     --db:rollback()
     if e10053==true then
         db:internal_call("ALTER SESSION SET EVENTS '10053 trace name context off'")
         oracle.C.tracefile.get_trace('default')
     elseif prof==true then
-            oracle.C.sqlprof.extract_profile(nil,'plan',sqltext)
+        oracle.C.sqlprof.extract_profile(nil,'plan',sqltext)
     end
     cfg.set("feed",feed,true)
 end

@@ -19,7 +19,7 @@ Option:
 ]]--
 ]]*/
 set PRINTSIZE 9999
-set feed off
+set feed off pipequery off
 
 VAR C REFCURSOR Binding Variables
 BEGIN

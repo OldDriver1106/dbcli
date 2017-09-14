@@ -285,8 +285,10 @@ function oracle:parse(sql,params)
     local sql_type=self.get_command_type(sql)
     local method,value,typeid,typename,inIdx,outIdx,vname=1,2,3,4,5,6,7
     if sql_type=="SELECT" or sql_type=="WITH" then 
-        if(sql:lower():find('%Wtable%s*%(')) then 
-            cfg.set("pipequery",'on') 
+        if sql:lower():find('%Wtable%s*%(') and not sql:lower():find('xplan') then 
+            cfg.set("pipequery",'on')
+        else
+            cfg.set("pipequery",'off')
         end
     end
     if sql_type=='EXPLAIN' or #p2>0 and (sql_type=="DECLARE" or sql_type=="BEGIN" or sql_type=="CALL") then

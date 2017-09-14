@@ -90,7 +90,7 @@ function sqlprof.extract_profile(sql_id,sql_plan,sql_text)
                                 FROM   gv$sql_plan a
                                 UNION ALL
                                 SELECT other_xml, 'plan table', p_sql_id sql_id, -1
-                                FROM   PLAN_TABLE a)
+                                FROM   PLAN_TABLE a WHERE PLAN_ID=(select max(PLAN_ID) keep(dense_rank last order by timestamp) from PLAN_TABLE))
                         WHERE  rownum < 2
                         AND    (sql_id = p_sqlid AND plan_hash_value LIKE v_plan OR sql_id = p_plan OR src='plan table' and sql_id='_x_')
                         AND    other_xml IS NOT NULL

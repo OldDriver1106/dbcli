@@ -8,7 +8,7 @@
     &Title: default={Event}, O={Obj#}
 --]]
 ]]*/
-set feed off printsize 3000
+set feed off printsize 3000 pipequery off
 
 WITH sql_plan_data AS
  (SELECT *

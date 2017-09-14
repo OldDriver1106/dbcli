@@ -219,7 +219,7 @@ function snapper:run_sql(sql,main_args,cmds,files)
     for idx,text in ipairs(sql) do
         local cmd,arg=self:parse(cmds[idx],sql[idx],args[idx],files[idx])
         self.cmds[cmds[idx]],self.args[cmds[idx]]=cmd,arg
-        arg.snap_cmd=snap_cmd or ''
+        arg.snap_cmd=(snap_cmd or ''):sub(1,2000)
         arg.snap_interval=tonumber(interval) or 0
         if cmd.before_sql then
             env.eval_line(cmd.before_sql,true,true) 

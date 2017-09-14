@@ -100,6 +100,7 @@ function sqlprof.extract_profile(sql_id,sql_plan,sql_text)
                         FROM   sys.sqlobj$ b, sys.sqlobj$data a
                         WHERE  b.name = nvl(p_plan, p_sqlid)
                         AND    b.signature = a.signature
+                        AND    comp_data is not null
                     $ELSE
                         UNION ALL
                         SELECT Xmlelement("outline_data", xmlagg(Xmlelement("hint", attr_val) ORDER BY attr#))
@@ -118,9 +119,9 @@ function sqlprof.extract_profile(sql_id,sql_plan,sql_text)
             PROCEDURE pr(p_text VARCHAR2, flag BOOLEAN DEFAULT TRUE) IS
             BEGIN
                 IF flag THEN
-                    dbms_lob.writeappend(v_text, lengthb(p_text) + 1, p_text || chr(10));
+                    dbms_lob.writeappend(v_text, length(p_text) + 1, p_text || chr(10));
                 ELSE
-                    dbms_lob.writeappend(v_text, lengthb(p_text), p_text);
+                    dbms_lob.writeappend(v_text, length(p_text), p_text);
                 END IF;
             END;
         BEGIN

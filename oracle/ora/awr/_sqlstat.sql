@@ -30,7 +30,7 @@ BEGIN
                decode(elapsed_time_delta, 0, plsexec_time_total, plsexec_time_delta)*1e-6 plsexec_time,
                decode(elapsed_time_delta, 0, javexec_time_total, javexec_time_delta)*1e-6 javexec_time
         FROM   dba_hist_sqlstat h, dba_hist_snapshot s
-        WHERE  greatest(h.elapsed_time_delta, executions_total) > 0
+        WHERE  greatest(h.elapsed_time_delta, elapsed_time_total) > 0
         AND    s.snap_id = h.snap_id
         AND    s.dbid = h.dbid
         AND    s.instance_number = h.instance_number )]';

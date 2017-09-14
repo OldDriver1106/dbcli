@@ -2,6 +2,7 @@ package org.dbcli;
 
 import com.esotericsoftware.reflectasm.ClassAccess;
 import com.naef.jnlua.LuaState;
+import org.fusesource.jansi.internal.*;
 import org.jline.builtins.Commands;
 import org.jline.builtins.Less;
 import org.jline.builtins.Source;
@@ -132,7 +133,9 @@ public class Console {
     public Console() throws Exception {
         String colorPlan = System.getenv("ANSICON_DEF");
         if (colorPlan == null) colorPlan = "jline";
-        terminal = OSUtils.IS_WINDOWS && !(OSUtils.IS_CYGWIN || OSUtils.IS_MINGW) ? new WindowsTerminal(colorPlan) : new PosixTerminal(colorPlan);
+        if(OSUtils.IS_WINDOWS && !(OSUtils.IS_CYGWIN || OSUtils.IS_MINGW) ) {
+            terminal=new WindowsTerminal(colorPlan,Kernel32.INSTANCE.GetConsoleOutputCP());
+        } else terminal =new PosixTerminal(colorPlan);
         this.reader = (LineReaderImpl) LineReaderBuilder.builder().terminal(terminal).build();
         this.parser = new Parser();
         this.reader.setParser(parser);
@@ -148,6 +151,9 @@ public class Console {
         */
         setKeyCode("redo", "^Y");
         setKeyCode("undo", "^Z");
+        setKeyCode("backward-kill-word", "^?");
+        setKeyCode("backward-word", "^[[1;3D");
+        setKeyCode("forward-word", "^[[1;3C");
 
         input = terminal.reader();
 

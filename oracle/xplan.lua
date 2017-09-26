@@ -3,20 +3,24 @@ local xplan={}
 local default_fmt,e10053,prof="ALLSTATS ALL -PROJECTION OUTLINE REMOTE"
 function xplan.explain(fmt,sql)
     local ora,sqltext=db.C.ora
+    local _fmt=default_fmt
+    if db.props.db_version>'11' then
+        _fmt = 'adaptive '.._fmt
+    end
     env.checkhelp(fmt)
     e10053=false
     if fmt:sub(1,1)=='-' then
         if not sql then return end
         fmt=fmt:sub(2)
         if fmt=='10053' then
-            e10053,fmt=true,default_fmt
-            fmt=default_fmt
+            e10053,fmt=true,_fmt
+            fmt=_fmt
         elseif fmt:lower()=="prof" then
-            prof,fmt=true,default_fmt
+            prof,fmt=true,_fmt
         end
     else
         sql=fmt..(not sql and "" or " "..sql)
-        fmt=default_fmt
+        fmt=_fmt
     end
     sql=env.COMMAND_SEPS.match(sql)
 
@@ -77,9 +81,7 @@ function xplan.explain(fmt,sql)
                  COUNT(*) over() AS rc
             FROM   (SELECT * FROM qry,TABLE(dbms_xplan.display('PLAN_TABLE', NULL, '@fmt@', 'plan_id=' || qry.plan_id))) x
             LEFT   OUTER JOIN ordered_hierarchy_data o
-            ON     (o.id = CASE WHEN regexp_like(x.plan_table_output, '^\|[\* 0-9]+\|') THEN
-                                to_number(regexp_substr(x.plan_table_output, '[0-9]+'))
-                           END))
+            ON     (o.id = CASE WHEN regexp_like(x.plan_table_output, '^\|[-\* ]*[0-9]+ \|') THEN to_number(regexp_substr(x.plan_table_output, '[0-9]+')) END))
         select plan_table_output
         from   xplan_data
         model

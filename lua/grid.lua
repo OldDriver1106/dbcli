@@ -261,6 +261,7 @@ function grid:ctor(include_head)
     self.data=table.new(1000,0)
 end
 
+local max_integer=math.pow(2,63)
 function grid.format_column(include_head,colinfo,value,rownum)
     if include_head then
         value=event.callback("ON_COLUMN_VALUE",{colinfo.column_name,value,rownum})[2]
@@ -268,7 +269,7 @@ function grid.format_column(include_head,colinfo,value,rownum)
     if value==nil then return false,'' end
     if rownum>0 and (type(value) == "number"  or include_head and colinfo.is_number) then
         local v1,v2=tonumber(value)
-        if v1 then
+        if v1 and v1<max_integer or type(value)=="number" then
             local pre,scal=math.modf(v1)
             if grid.sep4k=="on" then
                 if v1~=pre then

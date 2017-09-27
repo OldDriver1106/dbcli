@@ -1,3 +1,5 @@
+2017-09-28: + oracle: "sys param -v" to show available parameter options
+                    : supports showing 12c adaptive execution plans
 2017-07-24: + public: new command 'grid' to merge several query into a grid
             * oracle: remove 'snap sestime/sesstat/systime/sysstat', replaced with 'snap session/system' 
 2017-07-21: + public: supports merge grids(symbol '| + -'), type 'test_grid' for sample

@@ -107,7 +107,7 @@ function extvars.set_instance(name,value)
                     WHERE  c.kqfcotab = t.indx
                     AND    c.inst_id = t.inst_id)
             SELECT table_name,
-                   MAX(CASE WHEN col IN ('INST_ID', 'INSTANCE_NUMBER') THEN col END) INST_COL,
+                   MAX(CASE WHEN col IN ('INST_ID', 'INSTANCE_NUMBER') AND TABLE_NAME NOT LIKE 'X$%' THEN col END) INST_COL,
                    MAX(CASE WHEN col IN ('CON_ID') THEN col END) CON_COL,
                    MAX(CASE WHEN DATA_TYPE='VARCHAR2' AND regexp_like(col,'(OWNER|SCHEMA|KGLOBTS4|USER.*NAME)') THEN col END)
                        KEEP(DENSE_RANK FIRST ORDER BY CASE WHEN col LIKE '%OWNER' THEN 1 ELSE 2 END) USR_COL,

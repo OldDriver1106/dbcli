@@ -21,7 +21,7 @@ set feed off VERIFY off
 var c refcursor;
 var rs CLOB;
 var filename varchar2;
-col avg_ela,ela,queue,cpu,app,cc,cl,plsql,java,io format smhd2
+col dur,avg_ela,ela,queue,cpu,app,cc,cl,plsql,java,io format smhd2
 col read,write format kmg
 
 DECLARE
@@ -45,10 +45,11 @@ BEGIN
             SELECT *
             FROM   (SELECT /*+no_expand*/
                            a.sql_id &option, &option1
-                           to_char(min(first_refresh_time),'MMDD HH24:MI:SS') first_seen,
+                           to_char(min(sql_exec_start),'MMDD HH24:MI:SS') first_seen,
                            to_char(max(last_refresh_time),'MMDD HH24:MI:SS') last_seen,
                            max(sid||',@'||inst_id) keep(dense_rank last order by last_refresh_time) last_sid,
                            max(status) keep(dense_rank last order by last_refresh_time,sid) last_status,
+                           round(SUM(last_refresh_time-sql_exec_start)*86400,2) dur, 
                            round(SUM(ELAPSED_TIME)*1e-6,2) ela, 
                            round(SUM(QUEUING_TIME)*1e-6,2) QUEUE, 
                            round(SUM(CPU_TIME)*1e-6,2) CPU, round(SUM(APPLICATION_WAIT_TIME)*1e-6,2) app,

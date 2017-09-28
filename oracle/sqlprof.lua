@@ -190,6 +190,7 @@ function sqlprof.extract_profile(sql_id,sql_plan,sql_text)
             pr('    sql_txt1  CLOB;');
             pr('    sql_prof  SYS.SQLPROF_ATTR;');
             pr('    signature NUMBER;');
+            pr('    prof_name VARCHAR2(30):=''SQLPROF'';');
             pr('    procedure wr(x varchar2) is begin dbms_lob.writeappend(sql_txt, length(x), x);end;');
             pr('BEGIN');
            
@@ -200,16 +201,34 @@ function sqlprof.extract_profile(sql_id,sql_plan,sql_text)
             pr('    END IF;');
             pr('    ');
 
-            
             IF instr(p_plan,' ')>1 THEN
+                pr('    BEGIN');
                 writeSQL(p_plan,'sql_txt1');
-                pr(q'[    BEGIN dbms_sql_translator.create_profile('SQLPROF'); EXCEPTION WHEN OTHERS THEN NULL;END;]');
-                pr('    BEGIN execute immediate ''grant all on sql translation profile SQLPROF to public'; EXCEPTION WHEN OTHERS THEN NULL;END;');
-                pr(q'[    BEGIN dbms_sql_translator.create_profile('SQLPROF'); EXCEPTION WHEN OTHERS THEN NULL;END;]');
-                pr(q'[    dbms_sql_translator.register_sql_translation('SQLPROF',sql_txt,sql_txt1);]');
-                pr('    --please create logon trigger on schema '||v_schema||' including:');
-                pr('    --alter session set sql_translation_profile = SQLPROF;');
-                pr(q'[    --alter session set events = '10601 trace name context forever, level 32';]');
+                pr('        --QUERY_REWRITE_INTEGRITY = TRUSTED');
+                pr('        --DBMS_ADVANCED_REWRITE.DECLARE_REWRITE_EQUIVALENCE('''||p_sqlid||''',sql_txt,sql_txt1,false,''GENERAL'');');
+                pr(q'[        dbms_sql_translator.create_profile(prof_name); ]');
+                pr(q'[        execute immediate 'grant all on sql translation profile '||prof_name||' to public';]');
+                pr(q'[    EXCEPTION WHEN OTHERS THEN NULL; END;]');
+                pr(q'[    dbms_sql_translator.register_sql_translation(prof_name,sql_txt,sql_txt1);]');
+                pr(replace(q'[    execute immediate '
+                CREATE OR REPLACE TRIGGER @schema.translate_logon_trigger
+                    AFTER logon ON @schema.schema
+                BEGIN
+                    EXECUTE IMMEDIATE ''alter session set sql_translation_profile = '||user||'.'||prof_name||''';
+                    EXECUTE IMMEDIATE q''{alter session set events = ''10601 trace name context forever, level 32''}'';
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;';]','@schema',v_schema));
+                pr(q'[    /* or :
+                1. modify existing service:
+                    declare
+                        params dbms_service.svc_parameter_array;
+                    begin
+                        params('SQL_TRANSLATION_PROFILE') := '<OWNER>.SQLPROF';
+                        dbms_service.modify_service(service_name=>'<service_name>',parameter_array=>params);
+                    end;
+                3. create new service:
+                    srvctl add service -db <db_name> -service <service_name> -sql_translation_profile <OWNER>.SQLPROF]');
+                pr('    */');
                 pr('END;');
                 pr('/');
                 p_buffer := v_text;

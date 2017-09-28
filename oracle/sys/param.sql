@@ -4,7 +4,7 @@
       @ctn: 12={decode(bitand(ksppiflg, 4), 4, 'FALSE', decode(bitand(ksppiflg / 65536, 3), 0, 'FALSE', 'TRUE')) ISPDB_MDF,}, default={}
       &df: {
         default={KSPPSTDFL default_value}
-        v={(select listagg(decode(ISDEFAULT_KSPVLD_VALUES,'TRUE','*')||VALUE_KSPVLD_VALUES,','||chr(10)) within group(order by ISDEFAULT_KSPVLD_VALUES desc) from X$KSPVLD_VALUES
+        v={(select listagg(decode(ISDEFAULT_KSPVLD_VALUES,'TRUE','*',' ')||VALUE_KSPVLD_VALUES,','||chr(10)) within group(order by ISDEFAULT_KSPVLD_VALUES desc) from X$KSPVLD_VALUES
            where NAME_KSPVLD_VALUES=ksppinm) avail_values}
       }
    --]]

@@ -1,3 +1,4 @@
+2017-10-01: + oracle: enhancement on 'ora sqlm [-avg|-l]' 
 2017-09-28: + oracle: "sys param -v" to show available parameter options
                     : supports showing 12c adaptive execution plans
                     : "sqlprof <sql_id> <sql_text>" to support dbms_sql_translator

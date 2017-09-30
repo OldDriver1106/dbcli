@@ -305,7 +305,7 @@ function sqlprof.extract_profile(sql_id,sql_plan,sql_text)
     if args[1] and args[1]:sub(1,1)=="#" then
         env.raise(args[1]:sub(2))
     end
-    print("Result written to file "..env.write_cache((sql_id or "prof_plan_table")..".sql",args[2]))
+    print("Result written to file "..env.write_cache('prof_'..(sql_id or "prof_plan_table")..".sql",args[2]))
 end
 
 function sqlprof.onload()

@@ -44,8 +44,8 @@ local function rep_instance(prefix,full,obj,suffix)
 end
 
 function extvars.on_before_db_exec(item)
-    if item and item[2] and item[2]:find('lz_compress') then
-        var.setInputs("lz_compress",db.lz_compress);
+    if item and item[2] and item[2]:find('&lz_compress',1,true) then
+        item[2]=item[2]:gsub("&lz_compress",db.lz_compress);
     end
     
     if not var.outputs['INSTANCE'] then

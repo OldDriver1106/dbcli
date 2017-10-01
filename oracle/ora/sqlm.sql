@@ -3,7 +3,7 @@
     Related parameters for SQL monitor: 
         _sqlmon_recycle_time,_sqlmon_max_planlines,_sqlmon_max_plan,_sqlmon_threshold,control_management_pack_access,statistics_level
     -u  : Only show the SQL list within current schema
-    -l  : List the records related to the specific SQL_ID
+    -l  : List the records related to the specific SQL_ID and export SQL Performance Hub
     -f  : List the records that match the predicates, i.e.: -f"MODULE='DBMS_SCHEDULER'"
     -s  : Plan format is "ALL-SESSIONS-SQL_FULLTEXT-SQL_TEXT", this is the default
     -a  : Plan format is "ALL-SQL_FULLTEXT-SQL_TEXT"
@@ -13,10 +13,11 @@
       @ver: 12.1={} 11.2={--}
       &option : default={}, l={,sql_exec_id,plan_hash}
       &option1: default={count(distinct sql_exec_id) execs,round(sum(ELAPSED_TIME)/count(distinct sql_exec_id)*1e-6,2) avg_ela,}, l={}
-      &filter: default={1=1},f={},l={sql_id=:V1},u={username=nvl('&0',sys_context('userenv','current_schema'))}
+      &filter: default={1=1},f={},l={sql_id=sq_id},u={username=nvl('&0',sys_context('userenv','current_schema'))}
       &format: default={BASIC+PLAN+BINDS},s={ALL-SESSIONS}, a={ALL}
       &tot : default={1} avg={0}
       &avg : defult={1} avg={count(distinct sql_exec_id)}
+      &hub : SYS.DBMS_PERF={1} default={0}
    --]]
 ]]*/
 
@@ -31,20 +32,26 @@ col dur,avg_ela,ela,parse,queue,cpu,app,cc,cl,plsql,java,io,time format smhd2
 col read,write,iosize,mem,temp,cellio,buffget,offload,offlrtn format kmg
 col est_cost,est_rows,act_rows,ioreq,execs,outputs,FETCHES,dxwrite format TMB
 
+ALTER SESSION SET PLSQL_CCFLAGS = 'hub:&hub';
+
 DECLARE
     plan_hash  INT := regexp_substr(:V2, '^\d+$');
     start_time DATE;
     end_time   DATE;
+    sq_id      VARCHAR2(50):=:V1;
+    inst       INT := :INSTANCE;
     execs      INT;
     counter    INT := &tot;
+    filename   VARCHAR2(100);
+    content    CLOB;
 BEGIN
-    IF :V1 IS NOT NULL AND '&option' IS NULL THEN
+    IF sq_id IS NOT NULL AND '&option' IS NULL THEN
         EXECUTE IMMEDIATE 'alter session set "_sqlmon_max_planlines"=3000';
         OPEN :c FOR
-            SELECT DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => '&format-SQL_FULLTEXT-SQL_TEXT', TYPE => 'TEXT', sql_id => :V1, SQL_EXEC_ID => :V2, inst_id => :INSTANCE) AS report FROM   dual;
+            SELECT DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => '&format-SQL_FULLTEXT-SQL_TEXT', TYPE => 'TEXT', sql_id => sq_id, SQL_EXEC_ID => :V2, inst_id => inst) AS report FROM   dual;
         BEGIN
-            :rs       := DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => 'ALL', TYPE => 'ACTIVE', sql_id => :V1, SQL_EXEC_ID => :V2, inst_id => :INSTANCE);
-            :filename := 'sqlm_' || :V1 || '.html';
+            content  := DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => 'ALL', TYPE => 'ACTIVE', sql_id => sq_id, SQL_EXEC_ID => :V2, inst_id => inst);
+            filename := 'sqlm_' || sq_id || '.html';
         EXCEPTION WHEN OTHERS THEN NULL;
         END;
     ELSE
@@ -79,18 +86,31 @@ BEGIN
                     ORDER  BY last_seen DESC)
             WHERE  ROWNUM <= 100
             ORDER  BY last_seen, ela;
-        IF :V1 IS NOT NULL AND '&option' IS NOT NULL THEN
+        IF sq_id IS NOT NULL AND '&option' IS NOT NULL THEN
             SELECT /*+no_expand*/ MAX(sql_plan_hash_value) KEEP(DENSE_RANK LAST ORDER BY SQL_EXEC_START) INTO plan_hash 
             FROM  gv$sql_monitor 
-            WHERE sql_id = :V1 AND (plan_hash IS NULL OR plan_hash in(sql_exec_id,sql_plan_hash_value));
+            WHERE sql_id = sq_id AND (plan_hash IS NULL OR plan_hash in(sql_exec_id,sql_plan_hash_value));
         
             IF plan_hash IS NOT NULL THEN
                 SELECT MIN(sql_exec_start), MAX(last_refresh_time), COUNT(DISTINCT sql_exec_id)
                 INTO   start_time, end_time, execs
                 FROM   gv$sql_monitor
-                WHERE  sql_id = :V1
+                WHERE  sql_id = sq_id
                 AND    sql_plan_hash_value = plan_hash;
-            
+                
+                $IF DBMS_DB_VERSION.VERSION>11 AND $$hub =1 $THEN
+                    filename := 'sqlhub_' || sq_id || '.html';
+                    content  := sys.dbms_perf.report_sql(sql_id => sq_id,
+                                                         is_realtime => 0,
+                                                         outer_start_time => start_time,
+                                                         outer_end_time => end_time,
+                                                         selected_start_time => start_time,
+                                                         selected_end_time => end_time,
+                                                         inst_id => inst,
+                                                         dbid => null,
+                                                         monitor_list_detail => 50);
+                $END
+                
                 IF counter = 0 THEN
                     counter := execs;
                 END IF;
@@ -125,7 +145,7 @@ BEGIN
                            regexp_replace(MAX(ERROR_MESSAGE) keep(dense_rank LAST ORDER BY nvl2(ERROR_MESSAGE, last_refresh_time, NULL) NULLS FIRST),'[' || chr(9) || chr(10) || chr(13) || ' ]+', ' ') last_error
                     FROM   (SELECT a.*,sql_plan_hash_value phv,
                                    count(distinct inst_id||','||sid) over(partition by sql_exec_id) dops 
-                            FROM gv$sql_monitor a WHERE sql_id = :V1) b
+                            FROM gv$sql_monitor a WHERE sql_id = sq_id) b
                     GROUP  BY phv
                     ORDER  BY decode(phv, plan_hash, SYSDATE + 1, MAX(last_refresh_time));
             
@@ -136,13 +156,13 @@ BEGIN
                               FROM   (SELECT a.*, rank() over(PARTITION BY sql_exec_id ORDER BY flag) r
                                       FROM   (SELECT SQL_PLAN_LINE_ID id, event, current_obj#, sql_exec_id, 1 flag
                                               FROM   gv$active_session_history
-                                              WHERE  sql_id = :V1
+                                              WHERE  sql_id = sq_id
                                               AND    sql_plan_hash_value = plan_hash
                                               AND    sample_time BETWEEN start_time AND end_time
                                               UNION ALL
                                               SELECT SQL_PLAN_LINE_ID id, event, current_obj#, sql_exec_id, 10 flag
                                               FROM   dba_hist_active_sess_history
-                                              WHERE  sql_id = :V1
+                                              WHERE  sql_id = sq_id
                                               AND    sql_plan_hash_value = plan_hash
                                               AND    sample_time BETWEEN start_time AND end_time) a)
                               WHERE  r = 1
@@ -168,7 +188,7 @@ BEGIN
                                            ((max(last_change_time)  over(partition by b.sql_exec_id,plan_line_id)-
                                             min(first_change_time) over(partition by b.sql_exec_id,plan_line_id))*86400+1)*NVL2(b.px_qcsid,0,1) TIME
                                     FROM   gv$sql_plan_monitor a, gv$sql_monitor b
-                                    WHERE  b.sql_id = :V1
+                                    WHERE  b.sql_id = sq_id
                                     AND    b.sql_plan_hash_value = plan_hash
                                     AND    b.sql_id = a.sql_id
                                     AND    b.sql_exec_id = a.sql_exec_id
@@ -182,11 +202,12 @@ BEGIN
             END IF;
         END IF;
     END IF;
+    :rs       := content;
+    :filename := filename;
 END;
 /
 print c;
-save rs filename
 set colsep |
 print c0;
 print c1;
-
+save rs filename

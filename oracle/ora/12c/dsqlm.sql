@@ -1,15 +1,20 @@
 /*[[Get SQL Monitor report from dba_hist_reports, supports 12c only. Usage: @@NAME {[sql_id|report_id] [YYYYMMDDHH24MI] [YYYYMMDDHH24MI]} [-f"<filter>"] [-avg]
+  <sql_id> : List the records related to the specific SQL_ID and export SQL Performance Hub
+  -u       : Only show the SQL list within current schema
+  -avg     : Show average cost instead of total cost
   --[[
     @ver   : 12.1={}
+    &filt  : default={KEY1=nvl(v_sql_id,KEY1)},f={},u={username=nvl('&0',sys_context('userenv','current_schema'))}
     &grp   : default={none}, g={g}, d={d}
     &filter: default={1=1}, f={} 
     &avg   : default={sum), avg={avg}
+    &hub : SYS.DBMS_PERF={1} default={0}
   --]]
 ]]*/
 
 SET FEED OFF verify off
-VAR report CLOB;
-VAR cur REFCURSOR;
+
+
 def agg = ""
 col dur,avg_ela,ela,parse,queue,cpu,app,cc,cl,plsql,java,io,time format smhd2
 col read,write,iosize,mem,temp,cellio,buffget,offload,offlrtn format kmg
@@ -20,13 +25,21 @@ BEGIN
      END IF;
 END;
 /
+ALTER SESSION SET PLSQL_CCFLAGS = 'hub:&hub';
+
+VAR report CLOB;
+var filename VARCHAR2
+VAR cur REFCURSOR;
 DECLARE
     v_report_id int:= regexp_substr(:V1,'^\d+$');
     v_sql_id    VARCHAR2(30):=:V1;
+    v_inst      INT := :INSTANCE;
     v_report    clob;
+    v_file      VARCHAR2(50);
+    v_start     date:=NVL(to_date(NVL(:V2,:STARTTIME),'yymmddhh24mi'),sysdate-7);
+    v_end       date:=NVL(to_date(NVL(:V3,:ENDTIME),'yymmddhh24mi'),sysdate);
 BEGIN
     IF v_report_id IS NULL THEN
-       
         OPEN :cur FOR
         &agg SELECT sql_id, 
         &agg        max(report_id) last_rpt, 
@@ -62,6 +75,7 @@ BEGIN
                     FROM   (SELECT a.*, xmltype(a.report_summary) summary FROM dba_hist_reports a) a,
                            xmltable('/report_repository_summary/*' PASSING a.summary columns --
                                     plan_hash NUMBER PATH 'plan_hash',
+                                    username  VARCHAR2(100) PATH 'user',
                                     dur NUMBER path 'stats/stat[@name="duration"]', 
                                     ela NUMBER path 'stats/stat[@name="elapsed_time"]*1e-6', 
                                     CPU NUMBER path 'stats/stat[@name="cpu_time"]*1e-6',
@@ -85,21 +99,38 @@ BEGIN
                                     --
                                     ) b
                           WHERE  a.COMPONENT_NAME='sqlmonitor'
-                          AND    KEY1=nvl(v_sql_id,KEY1)
+                          AND    (&filt)
                           AND    (v_sql_id IS NOT NULL OR plan_hash>0)
-                          AND    PERIOD_START_TIME<=NVL(to_date(NVL(:V3,:ENDTIME),'yymmddhh24mi'),sysdate)
-                          AND    PERIOD_END_TIME>=NVL(to_date(NVL(:V2,:STARTTIME),'yymmddhh24mi'),sysdate-7)
+                          AND    PERIOD_START_TIME<=v_end
+                          AND    PERIOD_END_TIME>=v_start
                 ) WHERE &filter
                 ORDER BY REPORT_ID DESC
             &agg ) GROUP BY SQL_ID ORDER BY ELA DESC
-            FETCH FIRST 50 ROWS ONLY;      
+            FETCH FIRST 50 ROWS ONLY;
+        IF v_sql_id IS NOT NULL THEN
+            $IF DBMS_DB_VERSION.VERSION>11 AND $$hub =1 $THEN
+                v_file   := 'sqlhub_' || v_sql_id || '.html';
+                v_report := sys.dbms_perf.report_sql(sql_id => v_sql_id,
+                                                     is_realtime => 0,
+                                                     outer_start_time => v_start,
+                                                     outer_end_time => v_end,
+                                                     selected_start_time => v_start,
+                                                     selected_end_time => v_end,
+                                                     inst_id => v_inst,
+                                                     dbid => null,
+                                                     monitor_list_detail => 50);
+            $END
+        END IF;
     ELSE
         OPEN :cur for 
             SELECT DBMS_AUTO_REPORT.REPORT_REPOSITORY_DETAIL(RID => v_report_id, TYPE => 'text')
             FROM dual;
-        :report := DBMS_AUTO_REPORT.REPORT_REPOSITORY_DETAIL(RID => v_report_id, TYPE => 'active');
+        v_report := DBMS_AUTO_REPORT.REPORT_REPOSITORY_DETAIL(RID => v_report_id, TYPE => 'active');
+        v_file   := 'dsqlm_report_'||v_report_id||'.html';
     END IF;
+    :report  := v_report;
+    :filename:= v_file;
 END;
 /
 print cur
-save report last_dsqlm_report.html
+save report filename

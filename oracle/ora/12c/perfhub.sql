@@ -33,9 +33,9 @@ BEGIN
                                              selected_start_time => v_start,
                                              selected_end_time => v_end,
                                              inst_id => v_inst,
-                                             monitor_list_detail => 100,
-                                             workload_sql_detail => 100,
-                                             addm_task_detail => 30);
+                                             monitor_list_detail => 50,
+                                             workload_sql_detail => 50,
+                                             addm_task_detail => 20);
     EXCEPTION
         WHEN OTHERS THEN
             IF v_file IS NOT NULL THEN

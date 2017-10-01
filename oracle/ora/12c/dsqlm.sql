@@ -8,7 +8,7 @@
     &grp   : default={none}, g={g}, d={d}
     &filter: default={1=1}, f={} 
     &avg   : default={sum), avg={avg}
-    &hub : SYS.DBMS_PERF={1} default={0}
+    @check_access_hub : SYS.DBMS_PERF={1} default={0}
   --]]
 ]]*/
 
@@ -25,7 +25,7 @@ BEGIN
      END IF;
 END;
 /
-ALTER SESSION SET PLSQL_CCFLAGS = 'hub:&hub';
+ALTER SESSION SET PLSQL_CCFLAGS = 'hub:&check_access_hub';
 
 VAR report CLOB;
 var filename VARCHAR2

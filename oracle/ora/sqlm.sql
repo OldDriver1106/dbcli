@@ -2,22 +2,31 @@
     Get resource usage from SQL monitor. Usage: @@NAME {sql_id [<SQL_EXEC_ID>] [[plan_hash_value] -l|-a|-s]} | {. <keyword>} [-u|-f"<filter>"] [-avg]
     Related parameters for SQL monitor: 
         _sqlmon_recycle_time,_sqlmon_max_planlines,_sqlmon_max_plan,_sqlmon_threshold,control_management_pack_access,statistics_level
-    -u  : Only show the SQL list within current schema
-    -l  : List the records related to the specific SQL_ID and export SQL Performance Hub
-    -f  : List the records that match the predicates, i.e.: -f"MODULE='DBMS_SCHEDULER'"
-    -s  : Plan format is "ALL-SESSIONS-SQL_FULLTEXT-SQL_TEXT", this is the default
-    -a  : Plan format is "ALL-SQL_FULLTEXT-SQL_TEXT"
-    -avg: Show avg time in case of listing the SQL monitor reports 
     
+    Usages:
+       1. @@NAME <sql_id> [<sql_exec_id>]           : Extract sql monitor report with specific sql_id, options: -s,-a,-f"<format>"
+       2. @@NAME [. <keyword>]                      : List recent sql monitor reports,options: -avg,-u,-f"<filter>" 
+       3. @@NAME <sql_id> -l [plan_hash|sql_exec_id]: List the reports and generate perf hub report for specific SQL_ID, options: -avg,-u,-f"<filter>"
+       4. @@NAME -snap <sec> <sid> [<serial#>]      : Monitor the specific <sid> for <sec> seconds, and then list the SQL monitor result, options: -avg
+       
+    Options:
+        -u  : Only show the SQL list within current schema
+        -f  : List the records that match the predicates, i.e.: -f"MODULE='DBMS_SCHEDULER'"
+        -s  : Plan format is "ALL-SESSIONS-SQL_FULLTEXT-SQL_TEXT", this is the default
+        -a  : Plan format is "ALL-SQL_FULLTEXT-SQL_TEXT"
+        -avg: Show avg time in case of listing the SQL monitor reports 
+
    --[[
-      @ver: 12.1={} 11.2={--}
+      @ver: 12.2={} 11.2={--}
       &option : default={}, l={,sql_exec_id,plan_hash}
       &option1: default={count(distinct sql_exec_id) execs,round(sum(ELAPSED_TIME)/count(distinct sql_exec_id)*1e-6,2) avg_ela,}, l={}
-      &filter: default={1=1},f={},l={sql_id=sq_id},u={username=nvl('&0',sys_context('userenv','current_schema'))}
-      &format: default={BASIC+PLAN+BINDS},s={ALL-SESSIONS}, a={ALL}
+      &filter: default={1=1},f={},l={sql_id=sq_id},snap={DBOP_EXEC_ID=dopeid and dbop_name=dopename},u={username=nvl('&0',sys_context('userenv','current_schema'))}
+      &format: default={BASIC+PLAN+BINDS},s={ALL-SESSIONS}, a={ALL}, f={}
       &tot : default={1} avg={0}
       &avg : defult={1} avg={count(distinct sql_exec_id)}
-      &hub : SYS.DBMS_PERF={1} default={0}
+      &snap: default={0} snap={1}
+      @check_access_hub : SYS.DBMS_PERF={1} default={0}
+      @check_access_sqlm: SYS.DBMS_SQL_MONITOR/SYS.DBMS_LOCK={1} default={0}
    --]]
 ]]*/
 
@@ -32,19 +41,42 @@ col dur,avg_ela,ela,parse,queue,cpu,app,cc,cl,plsql,java,io,time format smhd2
 col read,write,iosize,mem,temp,cellio,buffget,offload,offlrtn format kmg
 col est_cost,est_rows,act_rows,ioreq,execs,outputs,FETCHES,dxwrite format TMB
 
-ALTER SESSION SET PLSQL_CCFLAGS = 'hub:&hub';
+ALTER SESSION SET PLSQL_CCFLAGS = 'hub:&check_access_hub,sqlm:&check_access_sqlm';
 
 DECLARE
     plan_hash  INT := regexp_substr(:V2, '^\d+$');
     start_time DATE;
     end_time   DATE;
     sq_id      VARCHAR2(50):=:V1;
-    inst       INT := :INSTANCE;
+    inst       INT := nvl(:V3,:INSTANCE);
     execs      INT;
     counter    INT := &tot;
     filename   VARCHAR2(100);
     content    CLOB;
+    dopename   VARCHAR(30);
+    dopeid     INT;
+    keyw       VARCHAR2(300):=:V2;
 BEGIN
+    IF &SNAP=1 THEN
+        $IF $$sqlm=0 $THEN
+            raise_application_error(-20001,'You dont'' have access on dbms_sql_monitor/dbms_lock, or db version < 12c!');
+        $ELSE
+            dopename := 'DBCLI_SNAPPER_'||USERENV('SESSIONID');
+            dopeid:= sys.dbms_sql_monitor.begin_operation (
+                             dbop_name       => dopename,
+                             dbop_eid        => dopeid,
+                             forced_tracking => sys.dbms_sql_monitor.force_tracking,
+                             session_id      => plan_hash,
+                             session_serial  => inst);
+            sys.dbms_lock.sleep(sq_id+0);
+            sys.dbms_sql_monitor.end_operation(dopename,dopeid);
+            dbms_output.put_line('Filter: dbop_name='''||dopename||''' and dbop_eid='||dopeid);
+            sq_id     := NULL;
+            keyw      := NULL;
+            plan_hash := NULL;
+        $END
+    END IF;
+    
     IF sq_id IS NOT NULL AND '&option' IS NULL THEN
         EXECUTE IMMEDIATE 'alter session set "_sqlmon_max_planlines"=3000';
         OPEN :c FOR
@@ -57,8 +89,7 @@ BEGIN
     ELSE
         OPEN :c FOR
             SELECT *
-            FROM   (SELECT /*+no_expand*/
-                             a.sql_id &OPTION,
+            FROM   (SELECT   a.sql_id &OPTION,
                              &option1 to_char(MIN(sql_exec_start), 'MMDD HH24:MI:SS') first_seen,
                              to_char(MAX(last_refresh_time), 'MMDD HH24:MI:SS') last_seen,
                              MAX(sid || ',@' || inst_id) keep(dense_rank LAST ORDER BY nvl2(px_qcsid,to_date(null),last_refresh_time) nulls first) last_sid,
@@ -76,11 +107,11 @@ BEGIN
                              round(sum(PHYSICAL_READ_BYTES)/&avg, 2) READ,
                              round(sum(PHYSICAL_WRITE_BYTES)/&avg, 2) WRITE,
                              substr(regexp_replace(regexp_replace(MAX(sql_text), '^\s+|[' || CHR(10) || CHR(13) || ']'), '\s{2,}', ' '), 1, 200) sql_text
-                    FROM   (SELECT a.*, SQL_PLAN_HASH_VALUE plan_hash
+                    FROM   (SELECT /*+no_expand*/a.*, SQL_PLAN_HASH_VALUE plan_hash
                             FROM   gv$sql_monitor a
-                            WHERE  NOT regexp_like(a.process_name, '^[pP]\d+$')
-                            AND    (plan_hash IS NULL AND :V2 IS NOT NULL OR NOT regexp_like(upper(TRIM(SQL_TEXT)), '^(BEGIN|DECLARE|CALL)'))
-                            AND    (:V2 IS NULL OR a.sql_id ||'_'|| sql_plan_hash_value||'_'|| sql_exec_id || lower(sql_text) LIKE '%' || lower(:V2) || '%')
+                            WHERE  (&SNAP=1 OR NOT regexp_like(a.process_name, '^[pP]\d+$'))
+                            AND    (&SNAP=1 OR (plan_hash IS NULL AND :V2 IS NOT NULL OR NOT regexp_like(upper(TRIM(SQL_TEXT)), '^(BEGIN|DECLARE|CALL)')))
+                            AND    (&SNAP=1 OR (keyw IS NULL OR a.sql_id ||'_'|| sql_plan_hash_value||'_'|| sql_exec_id || lower(sql_text) LIKE '%' || lower(keyw) || '%'))
                             AND    (&filter)) a
                     GROUP  BY sql_id &OPTION
                     ORDER  BY last_seen DESC)

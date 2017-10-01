@@ -1,6 +1,6 @@
 /*[[Get SQL Monitor report from dba_hist_reports, supports 12c only. Usage: @@NAME {[sql_id|report_id] [YYYYMMDDHH24MI] [YYYYMMDDHH24MI]} [-f"<filter>"] [-avg]
   --[[
-    @ver: 12.1={}
+    @ver   : 12.1={}
     &grp   : default={none}, g={g}, d={d}
     &filter: default={1=1}, f={} 
     &avg   : default={sum), avg={avg}

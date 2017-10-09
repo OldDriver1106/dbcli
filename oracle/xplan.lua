@@ -4,7 +4,7 @@ local default_fmt,e10053,prof="ALLSTATS ALL -PROJECTION OUTLINE REMOTE"
 function xplan.explain(fmt,sql)
     local ora,sqltext=db.C.ora
     local _fmt=default_fmt
-    if db.props.db_version>'11' then
+    if db.props.db_version>'12' then
         _fmt = 'adaptive '.._fmt
     end
     env.checkhelp(fmt)

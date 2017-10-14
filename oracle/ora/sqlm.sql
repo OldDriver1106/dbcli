@@ -59,8 +59,8 @@ DECLARE
     keyw       VARCHAR2(300):=:V2;
 BEGIN
     IF &SNAP=1 THEN
-        $IF $$sqlm=0 $THEN
-            raise_application_error(-20001,'You dont'' have access on dbms_sql_monitor/dbms_lock, or db version < 12c!');
+        $IF $$sqlm=0 OR DBMS_DB_VERSION.release=1 $THEN
+            raise_application_error(-20001,'You dont'' have access on dbms_sql_monitor/dbms_lock, or db version < 12.2!');
         $ELSE
             dopename := 'DBCLI_SNAPPER_'||USERENV('SESSIONID');
             dopeid:= sys.dbms_sql_monitor.begin_operation (

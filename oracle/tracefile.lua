@@ -241,7 +241,7 @@ function trace.get_trace(filename,mb,from_mb)
     db:internal_call(sql,args)
     env.checkerr(args[2],args[4])
     print(args.res);
-    args[3]=loader:Base64ZlibToText(args[3]);
+    args[3]=loader:Base64ZlibToText(args[3]:split('\n'));
     print("Result written to file "..env.write_cache(args[2],args[3]))
 end
 

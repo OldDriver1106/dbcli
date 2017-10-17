@@ -367,13 +367,12 @@ public class Loader {
             }
         }
 
-        try (Closeable c2 = iis) {
-            StringBuffer sb = new StringBuffer();
-            int i = 0;
-            for (int c = iis.read(); c != -1; c = iis.read()) {
-                sb.append((char) c);
-            }
-            return sb.toString();
+        try (Closeable c2 = iis;ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[16384];
+            int len;
+            while ((len = iis.read(buffer))>0)
+                bos.write(buffer, 0, len);
+            return new String(bos.toByteArray());
         }
     }
 

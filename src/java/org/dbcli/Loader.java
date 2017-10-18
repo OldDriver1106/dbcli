@@ -9,6 +9,7 @@ import com.opencsv.ResultSetHelperService;
 import com.opencsv.SQLWriter;
 import org.jline.keymap.KeyMap;
 import org.jline.utils.OSUtils;
+import org.mozilla.universalchardet.UniversalDetector;
 
 
 import java.awt.event.ActionEvent;
@@ -368,11 +369,20 @@ public class Loader {
         }
 
         try (Closeable c2 = iis;ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            UniversalDetector detector = new UniversalDetector(null);
             byte[] buffer = new byte[16384];
             int len;
             while ((len = iis.read(buffer))>0)
                 bos.write(buffer, 0, len);
-            return new String(bos.toByteArray());
+            buffer=bos.toByteArray();
+            detector.handleData(buffer);
+            detector.dataEnd();
+            String charset=detector.getDetectedCharset();
+            //System.out.println(charset);
+            if(charset!=null&&charset!="null")
+                return new String(buffer,detector.getDetectedCharset());
+            else
+                return new String(buffer);
         }
     }
 

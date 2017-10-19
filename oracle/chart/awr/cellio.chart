@@ -32,6 +32,7 @@
                    round(SUM(small_write_bytes_avg), 3) small_write_bytes,
                    round(SUM(large_write_bytes_avg), 3) large_write_bytes,
                    round(AVG(APP_IO_LATENCY_AVG) * 1e-3, 3) app_io_ms,
+                   round(avg(DISK_UTILIZATION_AVG),2) util,
                    round(AVG(small_read_latency_avg) * 1e-3, 3) small_read_ms,
                    round(AVG(large_read_latency_avg) * 1e-3, 3) large_read_ms,
                    round(AVG(small_write_latency_avg) * 1e-3, 3) small_write_ms,
@@ -47,36 +48,37 @@
         SELECT end_time snap_time,
                obj||'APP_IO' item,
                app_io_requests iops,
-               app_io_bytes bytes,
-               app_io_ms "Latency(ms)"
+               app_io_bytes "Bytes/s",
+               app_io_ms "Latency(ms)",
+               util "Disk Utilization(%)"
         FROM   snap
         UNION ALL
         SELECT end_time snap_time,
                obj||'SMALL_READ' item,
                small_reads iops,
-               small_read_bytes bytes,
-               small_read_ms ms
+               small_read_bytes,
+               small_read_ms ms,null
         FROM   snap
         UNION ALL
         SELECT end_time snap_time,
                obj||'SMALL_WRITE' item,
                small_writes iops,
-               small_write_bytes bytes,
-               small_write_ms ms
+               small_write_bytes,
+               small_write_ms ms,null
         FROM   snap
         UNION ALL
         SELECT end_time snap_time,
                obj||'LARGE_READ' item,
                large_reads iops,
-               large_read_bytes bytes,
-               large_read_ms ms
+               large_read_bytes,
+               large_read_ms ms,null
         FROM   snap
         UNION ALL
         SELECT end_time snap_time,
                obj||'LARGE_WRITE' item,
                large_writes iops,
-               large_write_bytes bytes,
-               large_write_ms ms
+               large_write_bytes,
+               large_write_ms ms,null
         FROM   snap
         ORDER  BY 1,2]],  
     labelsKMG2=true,

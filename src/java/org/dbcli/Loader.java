@@ -19,6 +19,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -379,9 +381,9 @@ public class Loader {
             detector.dataEnd();
             String charset=detector.getDetectedCharset();
             //System.out.println(charset);
-            if(charset!=null&&charset!="null")
-                return new String(buffer,detector.getDetectedCharset());
-            else
+            if(charset!=null&&!charset.equals("null")) {
+                return new String(buffer, charset);
+            } else
                 return new String(buffer);
         }
     }

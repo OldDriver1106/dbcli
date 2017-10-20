@@ -1,5 +1,5 @@
 /*[[
-    Show chart for DBA_HIST_CELL_DISK_SUMMARY. Usage: @@NAME {[yymmddhh24mi] [yymmddhh24mi]} [-f"<filter>"|-fd|-hd] [-c|-dn|-dt]
+    Show chart for DBA_HIST_CELL_DISK_SUMMARY. Usage: @@NAME {[yymmddhh24mi] [yymmddhh24mi] [keyword]} [-f"<filter>"|-fd|-hd] [-c|-dn|-dt]
     Impacted by settings: starttime,endtime,instance
     -c : detail to cell name
     -dn: detail to disk name
@@ -18,7 +18,7 @@
     title="Exadata Cell IO State Chart",
     _sql=[[
         WITH snap AS
-         (SELECT /*+materialize ordered use_hash(a b) no_merge(a) no_merge(b) no_merge(c) no_merge(d)*/
+         (SELECT /*+no_expand materialize ordered use_hash(a b) no_merge(a) no_merge(b) no_merge(c) no_merge(d)*/
                    snap_id, nullif('['||&obj||']','[]') obj,
                    to_char(end_interval_time, 'YYYY-MM-DD HH24:MI') end_time,
                    round(SUM(APP_IO_REQUESTS_AVG), 3) app_io_requests,
@@ -43,7 +43,7 @@
           JOIN   DBA_HIST_CELL_NAME b USING(dbid, snap_id)
           JOIN   DBA_HIST_CELL_DISK_SUMMARY c USING(dbid, snap_id,cell_hash)
           JOIN   DBA_HIST_CELL_DISK_NAME d USING(dbid, snap_id,cell_hash,DISK_ID)
-          WHERE  r = 1 AND (&filter)
+          WHERE  r = 1 AND (&filter) AND (:V3 IS NULL OR upper(:V3) in(upper(disk),upper(cell_name),upper(disk_name)))
           GROUP  BY snap_id, to_char(end_interval_time, 'YYYY-MM-DD HH24:MI'),&obj)
         SELECT end_time snap_time,
                obj||'APP_IO' item,

@@ -48,7 +48,7 @@ WHERE  conftype = 'CELL'
 ORDER BY 2;
 
 col total_size,free_size,HD_SIZE,FD_SIZE,flash_cache,flash_log format kmg
-col FC_ALLOC,ALLOC_OLTP,ALLOC_OLTP_KEEP,alloc_unflush_keep,ALLOC_UNFLUSH,USED,OLTP,KEEP,OLTP_KEEP,FCC,FCC_KEEP format kmg
+col FC_ALLOC,ALLOC_OLTP,ALLOC_OLTP_KEEP,alloc_dirty_keep,ALLOC_dirty,USED,OLTP,KEEP,OLTP_KEEP,FCC,FCC_KEEP format kmg
 grid {[[
         SELECT * FROM (
         SELECT  NVL((SELECT extractvalue(xmltype(c.confval), '/cli-output/context/@cell')
@@ -92,8 +92,8 @@ grid {[[
                 'Flash cache bytes allocated' AS fc_alloc,
                 'Flash cache bytes allocated for OLTP data' AS alloc_oltp,
                 'Flash cache bytes allocated for OLTP keep objects' AS alloc_oltp_keep,
-                'Flash cache bytes allocated for unflushed data' AS alloc_unflush,
-                'Flash cache bytes allocated for unflushed keep objects' AS alloc_unflush_keep,
+                'Flash cache bytes allocated for unflushed data' AS alloc_dirty,
+                'Flash cache bytes allocated for unflushed keep objects' AS alloc_dirty_keep,
                 'Flash cache bytes used' AS used,
                 'Flash cache bytes used for OLTP data' AS oltp,
                 'Flash cache bytes used - keep objects' AS keep,

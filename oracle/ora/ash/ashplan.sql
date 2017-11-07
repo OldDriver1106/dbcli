@@ -74,7 +74,7 @@ ash as(SELECT /*+no_expand materialize ordered use_nl(b)*/
                     count(1) over(partition by SQL_PLAN_LINE_ID,sql_exec_id,sample_time+0) aas
              FROM   qry a
              JOIN   &V9 b
-             ON     (b.sql_id=:V1 AND a.phv = b.sql_plan_hash_value AND sample_time BETWEEN NVL(to_date(nvl(:V3,:STARTTIME),'YYMMDDHH24MISS'),SYSDATE-7) AND NVL(to_date(nvl(:V4,:STARTTIME),'YYMMDDHH24MISS'),SYSDATE))
+             ON     (b.sql_id=:V1 AND a.phv = b.sql_plan_hash_value AND sample_time BETWEEN NVL(to_date(nvl(:V3,:STARTTIME),'YYMMDDHH24MISS'),SYSDATE-7) AND NVL(to_date(nvl(:V4,:ENDTIME),'YYMMDDHH24MISS'),SYSDATE))
              AND    (:V2 is null or nvl(lengthb(:V2),0) >6 or not regexp_like(:V2,'^\d+$') or :V2+0 in(QC_SESSION_ID,SESSION_ID))
        ) b WHERE r=1),
 ash_base AS(

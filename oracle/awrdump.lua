@@ -127,6 +127,7 @@ function awr.extract_awr(starttime,endtime,instances,starttime2,endtime2,contain
     local stmt=[[
     DECLARE
         rs        CLOB;
+        rs1       CLOB;
         filename  VARCHAR2(200);
         cur       SYS_REFCURSOR;
         typ       VARCHAR2(30):='AWR';
@@ -251,6 +252,23 @@ function awr.extract_awr(starttime,endtime,instances,starttime2,endtime2,contain
                     END;
                 END LOOP;
                 CLOSE rc;
+                /*
+                $IF DBMS_DB_VERSION.VERSION>11 $THEN
+                IF inst is null or not instr(inst,',')>0 THEN
+                    rs1 := sys.dbms_perf.report_perfhub(is_realtime => 0,
+                                                        outer_start_time => stim,
+                                                        outer_end_time => etim,
+                                                        selected_start_time => stim,
+                                                        selected_end_time => etim,
+                                                        inst_id => inst,
+                                                        monitor_list_detail => 50,
+                                                        workload_sql_detail => 50,
+                                                        addm_task_detail => 20);
+                   
+                    dbms_lob.append(rs,rs1);
+                END IF;
+                $END
+                */
             END IF;
         END;
     BEGIN

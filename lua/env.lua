@@ -955,7 +955,7 @@ function env.onload(...)
     if not init then error(err) end
     env.init=init()
     env.init.init_path(env)
-
+   
     os.setlocale('',"all")
     env.set_command(nil,"EXIT","#Exit environment, including variables, modules, etc",env.exit,false,1)
     env.set_command(nil,"RELOAD","Reload environment, including variables, modules, etc",env.reload,false,1)

@@ -197,7 +197,8 @@ local desc_sql={
         AND    SUBPROGRAM_ID > 0
     ) ORDER  BY NO#]],
 
-    INDEX={[[select /*INTERNAL_DBCLI_CMD*/ column_position NO#,column_name,column_length,char_length,descend from all_ind_columns
+    INDEX={[[select /*INTERNAL_DBCLI_CMD*/ table_owner||'.'||table_name table_name,column_position NO#,column_name,column_expression column_expr,column_length,char_length,descend
+            from all_ind_columns left join all_ind_expressions using(index_owner,index_name,column_position,table_owner,table_name)
             WHERE  index_owner=:1 and index_name=:2
             ORDER BY NO#]],
             [[WITH r1 AS (SELECT /*+no_merge*/* FROM all_part_key_columns WHERE owner=:owner and NAME = :object_name),
@@ -403,10 +404,16 @@ local desc_sql={
              DECODE(C.COLUMN_POSITION, 1, i.LAST_ANALYZED) LAST_ANALYZED,
              C.COLUMN_POSITION NO#,
              C.COLUMN_NAME,
+             E.COLUMN_EXPRESSION COLUMN_EXPR,
              C.DESCEND
-        FROM   ALL_IND_COLUMNS C,  I
+        FROM   ALL_IND_COLUMNS C,  I, all_ind_expressions e
         WHERE  C.INDEX_OWNER = I.OWNER
         AND    C.INDEX_NAME = I.INDEX_NAME
+        AND    C.INDEX_NAME = e.INDEX_NAME(+)
+        AND    C.INDEX_OWNER = e.INDEX_OWNER(+)
+        AND    C.column_position = e.column_position(+)
+        AND    c.table_owner = E.table_owner(+)
+        AND    c.table_name =e.table_name(+)
         ORDER  BY C.INDEX_NAME, C.COLUMN_POSITION]],
     [[
         SELECT /*INTERNAL_DBCLI_CMD*/ --+opt_param('_optim_peek_user_binds','false')

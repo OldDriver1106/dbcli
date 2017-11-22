@@ -1124,14 +1124,10 @@ function env.set_title(title)
     if CURRENT_TITLE~=titles then
         CURRENT_TITLE=titles
         env.uv.set_process_title(titles)
-        --[[local term=os.getenv("TERM")
-            if term=="screen" then
-                os.execute("echo -n '\\033k"..titles.."\\033\\\\'")
-            elseif term == "xterm" then
-                os.execute("echo -n '\\033]2;"..titles.."\\007'")
-            else
-                env.uv.set_process_title(titles)
-        --end]]
+        local term=os.getenv("TERM")
+        if term and printer then
+            printer.write("\27]2;"..titles.."\7\27[1K\27[1G")
+        end
     end
 end
 

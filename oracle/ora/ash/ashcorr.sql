@@ -31,7 +31,7 @@ st1 AS(SELECT * FROM ash1 WHERE lower(NAME) != lower(:V1)),
 RES AS(
     SELECT a.*,CEIL(ROWNUM / 3) r1, MOD(ROWNUM, 3) R2 
     FROM (
-        SELECT clz CLASS, NAME, CORR(st2.v, st1.v) / COUNT(st2.v) * COUNT(st1.v)*100 coe
+        SELECT /*+use_hash(st1 st2) ordered*/ clz CLASS, NAME, CORR(st2.v, st1.v) / COUNT(st2.v) * COUNT(st1.v)*100 coe
         FROM   st2
         LEFT   JOIN st1
         USING  (sample_id)

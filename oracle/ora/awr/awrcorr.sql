@@ -14,7 +14,7 @@
                      ss as(select snap_id from st0 union select snap_id from st2),
                      st1 as(select source_table,name,snap_id,nvl(value,0) value from (select * from (select distinct source_table,name from st0),ss) LEFT JOIN st0 USING(snap_id,source_table,name)),    
                      res as(SELECT source_table,name, CEIL(ROWNUM / 2) r1, MOD(ROWNUM, 2) R2, cop,cox,cok
-                          FROM   (SELECT --+ no_merge(st1) no_merge(st2)
+                          FROM   (SELECT --+ no_merge(st1) no_merge(st2) use_hash(st1 st2)
                                          replace(source_table,'dba_hist_') source_table, NAME, 
                                          trunc(CORR(st1.value,st2.value) * 100,6) cop,
                                          trunc(CORR_S(NVL(st1.value,0),nvl(st2.value,0)) * 100,6) cox,

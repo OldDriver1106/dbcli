@@ -20,7 +20,7 @@
       @ver: 12.2={} 11.2={--}
       &uniq:    default={count(DISTINCT sql_exec_id||','||to_char(sql_exec_start,'YYYYMMDDHH24MISS'))}
       &option : default={}, l={,sql_exec_id,plan_hash,sql_exec_start}
-      &option1: default={&uniq execs,round(sum(ELAPSED_TIME)/&uniq*1e-6,2) avg_ela,}, l={}
+      &option1: default={&uniq execs,round(sum(GREATEST(ELAPSED_TIME,CPU_TIME+APPLICATION_WAIT_TIME+CONCURRENCY_WAIT_TIME+CLUSTER_WAIT_TIME+USER_IO_WAIT_TIME+QUEUING_TIME))/&uniq*1e-6,2) avg_ela,}, l={}
       &filter: default={1=1},f={},l={sql_id=sq_id},snap={DBOP_EXEC_ID=dopeid and dbop_name=dopename},u={username=nvl('&0',sys_context('userenv','current_schema'))}
       &format: default={BASIC+PLAN+BINDS},s={ALL-SESSIONS}, a={ALL}
       &tot : default={1} avg={0}
@@ -113,17 +113,18 @@ BEGIN
         --EXECUTE IMMEDIATE 'alter session set "_sqlmon_max_planlines"=3000';
         sql_exec := :V2;
         IF sql_exec IS NULL THEN
-            select max(sql_exec_id) keep(dense_rank last order by last_refresh_time,sql_exec_start),
-                   max(sql_exec_start) keep(dense_rank last order by last_refresh_time)
+            select max(sql_exec_id) keep(dense_rank last order by sql_exec_start),
+                   max(sql_exec_start)
             into  sql_exec,sql_start
             from  gv$sql_monitor
             where sql_id=sq_id
+            AND   PX_SERVER# IS NULL
             and   inst_id=nvl(inst,inst_id);
         END IF;
         OPEN :c FOR
-            SELECT DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => '&format-SQL_FULLTEXT-SQL_TEXT', TYPE => 'TEXT', sql_id => sq_id, SQL_EXEC_ID => sql_exec, inst_id => inst) AS report FROM   dual;
+            SELECT DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => '&format-SQL_FULLTEXT-SQL_TEXT', TYPE => 'TEXT', sql_id => sq_id, SQL_EXEC_START=>sql_start,SQL_EXEC_ID => sql_exec, inst_id => inst) AS report FROM   dual;
         BEGIN
-            content  := DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => 'ALL', TYPE => 'ACTIVE', sql_id => sq_id, SQL_EXEC_ID => sql_exec, inst_id => inst);
+            content  := DBMS_SQLTUNE.REPORT_SQL_MONITOR(report_level => 'ALL', TYPE => 'ACTIVE', sql_id => sq_id,  SQL_EXEC_START=>sql_start,SQL_EXEC_ID => sql_exec, inst_id => inst);
             filename := 'sqlm_' || sq_id || '.html';
         EXCEPTION WHEN OTHERS THEN NULL;
         END;
@@ -217,7 +218,7 @@ BEGIN
                              MAX(sid || ',@' || inst_id) keep(dense_rank LAST ORDER BY nvl2(px_qcsid,to_date(null),last_refresh_time) nulls first) last_sid,
                              MAX(status) keep(dense_rank LAST ORDER BY last_refresh_time, sid) last_status,
                              round(sum((last_refresh_time - sql_exec_start)*nvl2(px_qcsid,0,1))/&avg * 86400, 2) dur,
-                             round(sum(ELAPSED_TIME)/&avg * 1e-6, 2) ela,
+                             round(sum(GREATEST(ELAPSED_TIME,CPU_TIME+APPLICATION_WAIT_TIME+CONCURRENCY_WAIT_TIME+CLUSTER_WAIT_TIME+USER_IO_WAIT_TIME+QUEUING_TIME))/&avg * 1e-6, 2) ela,
                              round(sum(QUEUING_TIME)/&avg * 1e-6, 2) QUEUE,
                              round(sum(CPU_TIME)/&avg * 1e-6, 2) CPU,
                              round(sum(APPLICATION_WAIT_TIME)/&avg * 1e-6, 2) app,
@@ -234,7 +235,8 @@ BEGIN
                             WHERE  (&SNAP=1 OR NOT regexp_like(a.process_name, '^[pP]\d+$'))
                             AND    (&SNAP=1 OR (plan_hash IS NULL AND :V2 IS NOT NULL OR NOT regexp_like(upper(TRIM(SQL_TEXT)), '^(BEGIN|DECLARE|CALL)')))
                             AND    (&SNAP=1 OR (keyw IS NULL OR a.sql_id ||'_'|| sql_plan_hash_value||'_'|| sql_exec_id || lower(sql_text) LIKE '%' || lower(keyw) || '%'))
-                            AND    (&filter)) a
+                            AND    (&filter)
+                            AND    PX_SERVER# IS NULL) a
                     GROUP  BY sql_id &OPTION
                     ORDER  BY last_seen DESC)
             WHERE  ROWNUM <= 100
@@ -249,6 +251,7 @@ BEGIN
                 INTO   start_time, end_time, execs
                 FROM   gv$sql_monitor
                 WHERE  sql_id = sq_id
+                AND    PX_SERVER# IS NULL
                 AND    sql_plan_hash_value = plan_hash;
                 
                 $IF DBMS_DB_VERSION.VERSION>11 AND $$hub =1 $THEN
@@ -275,9 +278,8 @@ BEGIN
                            round(SUM(FETCHES), 2) FETCHES,
                            to_char(MIN(sql_exec_start), 'MMDD HH24:MI:SS') first_seen,
                            to_char(MAX(last_refresh_time), 'MMDD HH24:MI:SS') last_seen,
-                           round(SUM((last_refresh_time - sql_exec_start)*nvl2(px_qcsid,0,1)) * 86400/&avg, 2) dur,
-                           round(SUM(((last_refresh_time - sql_exec_start)* 86400-ELAPSED_TIME*1e-6)*nvl2(px_qcsid,0,1)) /&avg, 2) parse,
-                           round(SUM(ELAPSED_TIME) * 1e-6 /&avg, 2) ela,
+                           round(SUM(dur*nvl2(px_qcsid,0,1))/&avg, 2) dur,
+                           round(SUM(GREATEST(ELAPSED_TIME,CPU_TIME+APPLICATION_WAIT_TIME+CONCURRENCY_WAIT_TIME+CLUSTER_WAIT_TIME+USER_IO_WAIT_TIME+QUEUING_TIME)) * 1e-6 /&avg, 2) ela,
                            round(SUM(QUEUING_TIME) * 1e-6 /&avg, 2) QUEUE,
                            round(SUM(CPU_TIME) * 1e-6 /&avg, 2) CPU,
                            round(SUM(APPLICATION_WAIT_TIME) * 1e-6 /&avg, 2) app,
@@ -297,6 +299,7 @@ BEGIN
                            MAX(DOPS) SIDS,
                            regexp_replace(MAX(ERROR_MESSAGE) keep(dense_rank LAST ORDER BY nvl2(ERROR_MESSAGE, last_refresh_time, NULL) NULLS FIRST),'\s+', ' ') last_error
                     FROM   (SELECT a.*,sql_plan_hash_value phv,
+                                   max(greatest((last_refresh_time-sql_exec_start)*86400,ELAPSED_TIME*1e-6,(CPU_TIME+APPLICATION_WAIT_TIME+CONCURRENCY_WAIT_TIME+CLUSTER_WAIT_TIME+USER_IO_WAIT_TIME+QUEUING_TIME)*1e-6))  over(partition by sql_exec_id,sql_exec_start) dur,
                                    count(distinct inst_id||','||sid) over(partition by sql_exec_id,sql_exec_start) dops 
                             FROM gv$sql_monitor a WHERE sql_id = sq_id) b
                     GROUP  BY phv

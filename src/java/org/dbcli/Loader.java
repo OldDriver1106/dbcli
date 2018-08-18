@@ -108,6 +108,7 @@ public class Loader {
         lua.pushGlobal("loader", loader);
         console.isSubSystem=false;
         console.setLua(lua);
+
         if (console.writer != null) {
             lua.pushGlobal("reader", console.reader);
             lua.pushGlobal("writer", console.writer);
@@ -306,7 +307,7 @@ public class Loader {
         while (t.isAlive()) {
             while ((str = queue.poll(timeout, TimeUnit.MILLISECONDS)) != null) {
                 messages.add(str);
-                if (messages.size() >= console.terminal.getHeight() * 3) break;
+                if (messages.size() >= console.getScreenHeight() * 3) break;
             }
             if (messages.size() > 0) {
                 String[] msg = messages.toArray(new String[0]);

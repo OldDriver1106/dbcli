@@ -80,7 +80,7 @@ interface Kernel32 extends StdCallLibrary {
     // UINT WINAPI GetConsoleOutputCP(void)
     int GetConsoleOutputCP();
 
-
+    int WaitForSingleObject(Pointer in_hHandle, int in_dwMilliseconds);
     // BOOL WINAPI FillConsoleOutputCharacter(
     // _In_ HANDLE hConsoleOutput,
     // _In_ TCHAR cCharacter,

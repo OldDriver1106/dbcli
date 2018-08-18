@@ -20,7 +20,7 @@ if console:getBufferWidth()<=console:getScreenWidth() then
 	print("  Please run 'set linesize <cols>' to a larger value if preferred folding the long lines rather than chopping.")
 end
 console.isSubSystem=false
-print()
+--print(console:getScreenWidth(),console:getScreenHeight())
 --start the CLI interpretor
 
 local line,eval = "",env.execute_line

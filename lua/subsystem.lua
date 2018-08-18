@@ -120,9 +120,11 @@ function system:call_process(cmd,is_native)
             end
         else
             local line=self:make_native_command(args)
-            terminal:lockReader(true)
             env.log_debug("subsystem","SQL: "..line)
-            return os.execute(line)
+            terminal:pause()
+            local rtn=pcall(os.execute,line)
+            terminal:resume()
+            return rtn
         end
     end
 

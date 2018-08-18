@@ -318,8 +318,8 @@ function ssh.set_config(name,value)
     _term=term
     local termtype = term..','..cols..','..rows
     if instance and instance.conn then
-        if cols=="auto" then cols=terminal:getWidth() end
-        if rows=="auto" then rows=terminal:getHeight() end
+        if cols=="auto" then cols=console:getScreenWidth() end
+        if rows=="auto" then rows=console:getScreenHeight() end
         instance.conn:setTermType(term,tonumber(cols),tonumber(rows))
         if instance:is_connect() and termtype~=cfg.get("term") then
             print(("Term Type: %s    Columns: %d    Rows: %d"):format(term,tonumber(cols),tonumber(rows)))

@@ -782,6 +782,7 @@ local err = pcall(function()
     readline = rl.readline
     saveline = rl.add_history
 end)
+
 if not rl then
     readline = function(prompt)
         write(prompt)
@@ -798,6 +799,7 @@ local params = {}
 local ilua = Ilua:new(params)
 
 function Ilua:loop(...)
+    terminal:pause()
     params = {}
     local arg={...}
     if arg then

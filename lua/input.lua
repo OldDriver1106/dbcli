@@ -14,7 +14,8 @@ local print=env.printer.print
 print("--------------------------------------------------------------------------------------------------------------------------------------")
 print("| DBCLI, type 'conn' to connect to db, or 'help' for more information. (c)2014-2016 hyee, MIT license (https://github.com/hyee/dbcli)|")
 print("======================================================================================================================================")
-if console:getBufferWidth()<=terminal:getWidth()+1 then
+
+if console:getBufferWidth()<=console:getScreenWidth() then
 	print("* Your terminal doesn't support horizontal scrolling, lines longer than screen width default to be chopped.")
 	print("  Please run 'set linesize <cols>' to a larger value if preferred folding the long lines rather than chopping.")
 end

@@ -21,7 +21,10 @@ import java.net.URLClassLoader;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.TreeMap;
 import java.util.concurrent.*;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
@@ -50,7 +53,6 @@ public class Loader {
 
     private Loader() throws Exception {
         try {
-            Locale.setDefault(Locale.ENGLISH);
             File f = new File(Loader.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             root = f.getParentFile().getParent();
             libPath = root + File.separator + "lib" + File.separator;
@@ -104,7 +106,7 @@ public class Loader {
     public static void loadLua(Loader loader, String args[]) throws Exception {
         lua = new LuaState();
         lua.pushGlobal("loader", loader);
-        console.isSubSystem = false;
+        console.isSubSystem=false;
         console.setLua(lua);
         if (console.writer != null) {
             lua.pushGlobal("reader", console.reader);

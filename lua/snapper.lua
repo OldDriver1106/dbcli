@@ -26,7 +26,7 @@
 --]]
 local env,pairs,ipairs,table,tonumber,pcall,type=env,pairs,ipairs,table,tonumber,pcall,type
 local sleep,math,cfg=env.sleep,env.math,env.set
-local terminal,getHeight=terminal,terminal.getHeight
+local console,getHeight=console,console.getScreenHeight
 
 local snapper=env.class(env.scripter)
 function snapper:ctor()
@@ -482,7 +482,7 @@ function snapper:next_exec()
             if #cmd.rs2.rsidx==1 then
                 (cmd.rs2.rsidx[1]):print(nil,nil,nil,cmd.max_rows and cmd.max_rows+2 or cfg.get(self.command.."rows"))
             else
-                if top_mode then cmd.rs2.max_rows=getHeight(terminal)-3 end
+                if top_mode then cmd.rs2.max_rows=getHeight(console)-3 end
                 env.grid.merge(cmd.rs2,true)
             end
             env.printer.top_mode=false

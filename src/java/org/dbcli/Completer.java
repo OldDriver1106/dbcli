@@ -11,6 +11,7 @@ import java.util.TreeMap;
 
 public class Completer implements org.jline.reader.Completer {
     public TreeMap<String, Candidate[]> candidates = new TreeMap();
+    Candidate more = new Candidate("--more--");
 
     @Override
     public void complete(LineReader lineReader, ParsedLine parsedLine, List<Candidate> list) {

@@ -360,7 +360,7 @@ function grid:add(row)
             for p in v:gmatch('([^\n\r]+)') do
                 grp[#grp+1]=p
                 --deal with unicode chars
-                local l, len = p:strip_ansi(p):ulen()
+                local l, len = p:ulen()
                 if l~=len then self.use_jwriter=true end
                 if csize < len then csize=len end
             end

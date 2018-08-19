@@ -11,12 +11,12 @@
         3. order_by: The columns that used to sort the final result, "-<column_name>" means desc ordering. 
         4. top_by  : Optional, if not specified then it equals to 'group_by', it is the subset of 'group_by' columns
         5. per_second: 'on' or 'off'(default), controls if to devide the delta stats by elapsed seconds
-        6. bypassemptyrs: 'on' or 'off'(default),when a 'sql' is an array, and one of which returns no rows, then controls wether to show this sql
-        7. top_mode: 'on' or 'off'(default), controls wether to clear the screen before print the result
+        6. bypassemptyrs: 'on' or 'off'(default),when a 'sql' is an array, and one of which returns no rows, then controls whether to show this sql
+        7. top_mode: 'on' or 'off'(default), controls whether to clear the screen before print the result
         8. calc_rules: the additional formula on a specific column after the 'delta_by' columns is calculated
-        9.fixed_title: true or false(default), controls wether not to change the 'delta_by' column titles
-        10.include_zero:  true or false(default), controls wether not to show the row in case of its 'delta_by' columns are all 0
-        11.set_ratio: true or false(default), controls wether not to add a percentage column on each 'delta_by' columns
+        9.fixed_title: true or false(default), controls whether not to change the 'delta_by' column titles
+        10.include_zero:  true or false(default), controls whether not to show the row in case of its 'delta_by' columns are all 0
+        11.set_ratio: true or false(default), controls whether not to add a percentage column on each 'delta_by' columns
         12.before_sql: the statements that executed before the 1st snapshot
         13.after_sql: the statements that executed after the 2nd snapshot
 

@@ -173,7 +173,7 @@ end
 function ssh:enter_i()
     local shell_env=""
     if self:is_connect() then shell_env="("..self:getresult("echo $SHELL")..")" end
-    print("$PROMPTCOLOR$Entering SSH interactive shell enviroment"..shell_env..", execute 'bye' to exit. Below are the embedded commands:$NOR$")
+    print("$PROMPTCOLOR$Entering SSH interactive shell environment"..shell_env..", execute 'bye' to exit. Below are the embedded commands:$NOR$")
     self.inner_help:print(true)
     self.is_enter_prompt=true
     env.set_subsystem(self.name)
@@ -458,7 +458,7 @@ function ssh:__onload()
         cmds:add(c)
     end
     cmds:add{" .<command>",'',"Run DBCLI command out of this SSH sub-system. For alias command that related to ssh, the '.' prefix can be ignored."}
-    cmds:add{"bye","","Exit SSH interactive shell enviroment."}
+    cmds:add{"bye","","Exit SSH interactive shell environment."}
     cmds:sort(1,true)
     helper:sort(1,true)
     self.help,self.inner_help=helper,cmds

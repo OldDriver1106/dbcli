@@ -134,7 +134,7 @@ DECLARE
         END IF;
         --define root object
         st('@target', parseName(v_owner, v_segname, v_partition), '@all');
-        st('@type', 'UNKOWN', '@all');
+        st('@type', 'UNKNOWN', '@all');
         st('@level', 0, '@all');
         --read segment list
         OPEN l_CursorSegs(p_owner, p_segname, p_partition);

@@ -438,7 +438,7 @@ Ilua.defaults = {
     num_all = nil,
 }
 
--- things to expose to the enviroment
+-- things to expose to the environment
 Ilua.expose = {
     ["Ilua"] = true, ["ilua"] = true, ["Pretty"] = true,
     ["p"] = true, ["ls"] = true, ["dir"] = true,

@@ -122,9 +122,9 @@ function system:call_process(cmd,is_native)
             local line=self:make_native_command(args)
             env.log_debug("subsystem","SQL: "..line)
             terminal:pause()
-            local rtn=pcall(os.execute,line)
+            pcall(os.execute,line)
             terminal:resume()
-            return rtn
+            return
         end
     end
 

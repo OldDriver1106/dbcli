@@ -53,7 +53,7 @@ if not defined ANSICON if defined ANSICON_CMD (
 )
 
 rem For win10, don't used both JLINE/Ansicon to escape the ANSI codes
-ver|findstr -r "[1-9][0-9]\.[0-9]*\.[0-9]">NUL && (SET "ANSICON_CMD=" && set "ANSICON_DEF=native")
+rem ver|findstr -r "[1-9][0-9]\.[0-9]*\.[0-9]">NUL && (SET "ANSICON_CMD=" && set "ANSICON_DEF=native")
 
 IF !CONSOLE_COLOR! NEQ NA color !CONSOLE_COLOR!
 rem unpack jar files for the first use
@@ -67,5 +67,5 @@ for /r %%i in (*.pack.gz) do (
    )
 )
 
-cmd.exe /c %ANSICON_CMD% .\lib\%bit%\luajit .\lib\bootstrap.lua "!JAVA_EXE!" %*
+cmd.exe /c .\lib\%bit%\luajit .\lib\bootstrap.lua "!JAVA_EXE!" %*
 EndLocal

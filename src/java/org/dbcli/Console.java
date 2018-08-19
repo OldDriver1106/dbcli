@@ -13,12 +13,11 @@ import org.jline.keymap.KeyMap;
 import org.jline.reader.*;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.LineReaderImpl;
+import org.jline.reader.impl.history.DefaultHistory;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
-import org.jline.terminal.impl.jansi.win.JansiWinSysTerminal;
-import org.jline.utils.Display;
-import org.jline.utils.NonBlockingReader;
-import org.jline.utils.OSUtils;
+import org.jline.terminal.impl.AbstractTerminal;
+import org.jline.utils.*;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -26,6 +25,7 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.Permission;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -33,7 +33,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.jline.reader.LineReader.DISABLE_HISTORY;
 import static org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN;
@@ -45,7 +47,7 @@ public class Console {
     public static String charset = System.getProperty("sun.stdout.encoding");
     public static ClassAccess<LineReaderImpl> accessor = ClassAccess.access(LineReaderImpl.class);
     protected static ScheduledExecutorService threadPool = Executors.newScheduledThreadPool(5);
-    public Terminal terminal;
+    public AbstractTerminal terminal;
     public boolean isSubSystem = false;
     LineReaderImpl reader;
     Display display;
@@ -61,9 +63,10 @@ public class Console {
     private char[] keys;
     private EventCallback callback;
     private ParserCallback parserCallback;
-    private Parser parser;
+    private MyParser parser;
     private volatile boolean pause = false;
-    private Highlighter highlighter = new Highlighter(this);
+    private DefaultHistory history = new DefaultHistory();
+    private Status status;
 
     public Console(String historyLog) throws Exception {
         String colorPlan = "dbcli";/*
@@ -74,17 +77,21 @@ public class Console {
             if (ansicon != null && ansicon.split("\\d+").length >= 3) colorPlan = "native";
             terminal = JansiWinSysTerminal.createTerminal(colorPlan, null, false, null, 0, true, Terminal.SignalHandler.SIG_IGN, false);
         } else*/
-            terminal = TerminalBuilder.builder().system(true).jna(false).jansi(true).signalHandler(Terminal.SignalHandler.SIG_IGN).nativeSignals(true).build();
+        this.terminal = (AbstractTerminal) TerminalBuilder.builder().system(true).jna(false).jansi(true).signalHandler(Terminal.SignalHandler.SIG_IGN).nativeSignals(true).build();
+        this.status = this.terminal.getStatus();
         this.display = new Display(terminal, false);
         this.reader = (LineReaderImpl) LineReaderBuilder.builder().terminal(terminal).build();
-        this.parser = new Parser();
+        this.parser = new MyParser();
         this.reader.setParser(parser);
-        this.reader.setHighlighter(highlighter);
+        this.reader.setHighlighter(parser);
         this.reader.setCompleter(completer);
+        this.reader.setHistory(history);
+        //this.reader.setOpt(LineReader.Option.DISABLE_HIGHLIGHTER);
         this.reader.setOpt(LineReader.Option.CASE_INSENSITIVE);
         this.reader.setOpt(LineReader.Option.MOUSE);
         this.reader.setOpt(LineReader.Option.AUTO_FRESH_LINE);
         this.reader.setOpt(LineReader.Option.BRACKETED_PASTE);
+        this.reader.setVariable(DISABLE_HISTORY, false);
         this.reader.setVariable(LineReader.HISTORY_FILE, historyLog);
         this.reader.setVariable(LineReader.HISTORY_FILE_SIZE, 2000);
         /*
@@ -203,18 +210,18 @@ public class Console {
     }
 
     public void setKeywords(Map<String, ?> keywords) {
-        highlighter.keywords = keywords;
+        parser.keywords = keywords;
         addCompleters(keywords, false);
     }
 
     public void setCommands(Map<String, Object> commands) {
-        highlighter.commands = commands;
+        parser.commands = commands;
         addCompleters(commands, true);
     }
 
     public void setSubCommands(Map<String, Object> commands) {
         addCompleters(commands, true);
-        highlighter.commands.putAll(commands);
+        parser.commands.putAll(commands);
     }
 
     public int wcwidth(String str) {
@@ -235,12 +242,17 @@ public class Console {
         Method main = clz.getDeclaredMethod("main", String[].class);
         subThread = new Thread(() -> {
             try {
+                SystemExitControl.forbidSystemExitCall();
                 main.invoke(null, new Object[]{args});
             } catch (IllegalAccessException e) {
                 e.printStackTrace();
             } catch (InvocationTargetException e) {
                 e.printStackTrace();
+            } catch (SecurityException e) {
+                System.out.println("Forbidding call to System.exit");
             } catch (Exception e) {
+            } finally {
+                SystemExitControl.enableSystemExitCall();
             }
         });
 
@@ -248,13 +260,16 @@ public class Console {
         //System.setSecurityManager(new NoExitSecurityManager(subThread));
         Logger.getLogger("OracleRestJDBCDriverLogger").setLevel(Level.OFF);
         try {
+            terminal.pause();
             subThread.setDaemon(true);
             subThread.start();
             subThread.join();
         } catch (Exception e1) {
+            subThread.interrupt();
         } finally {
             //System.setSecurityManager(null);
             subThread = null;
+            terminal.resume();
         }
     }
 
@@ -274,7 +289,7 @@ public class Console {
         Less less = new Less(terminal);
         less.veryQuiet = true;
         less.chopLongLines = false;
-        less.quitIfOneScreen=true;
+        less.quitIfOneScreen = true;
         less.ignoreCaseAlways = true;
         less.run(source);
     }
@@ -309,24 +324,27 @@ public class Console {
             terminal.resume();
             isPrompt = buffer != null && ansiPattern.matcher(buffer).find();
             if (isPrompt) {
-                highlighter.setAnsi(buffer);
+                parser.setAnsi(buffer);
                 buffer = null;
             } else {
-                reader.setOpt(LineReader.Option.DISABLE_HIGHLIGHTER);
                 reader.setOpt(LineReader.Option.DISABLE_EVENT_EXPANSION);
                 reader.setVariable(DISABLE_HISTORY, true);
             }
             pause = false;
             String line = reader.readLine(prompt, null, buffer);
+            if (line != null) {
+                line = parser.getLines();
+                if (line == null) return readLine(parser.secondPrompt, null);
+            }
             pause = true;
             //writeInput(reader.BRACKETED_PASTE_END);
             return line;
         } catch (Exception e) {
+            //e.printStackTrace();
             callback.call(null, "CTRL+C");
             return "";
         } finally {
-            if (isPrompt) {
-                reader.unsetOpt(LineReader.Option.DISABLE_HIGHLIGHTER);
+            if (!isPrompt) {
                 reader.unsetOpt(LineReader.Option.DISABLE_EVENT_EXPANSION);
                 reader.setVariable(DISABLE_HISTORY, false);
             }
@@ -447,25 +465,55 @@ public class Console {
         }
     }
 
-    class Parser extends DefaultParser {
-        final org.jline.reader.EOFError err = new org.jline.reader.EOFError(-1, -1, "Request new line", "");
+    class MyParser extends DefaultParser implements org.jline.reader.Highlighter {
+        public static final String DEFAULT_HIGHLIGHTER_COLORS = "rs=1:st=2:nu=3:co=4:va=5:vn=6:fu=7:bf=8:re=9";
+        public final Pattern numPattern = Pattern.compile("([0-9]+)");
+        public String buffer = null;
+        public Map<String, String> colors = Arrays.stream(DEFAULT_HIGHLIGHTER_COLORS.split(":"))
+                .collect(Collectors.toMap(s -> s.substring(0, s.indexOf('=')),
+                        s -> s.substring(s.indexOf('=') + 1)));
+        public Map<String, ?> keywords = new HashMap();
+        public Map<String, Object> commands = new HashMap();
         String secondPrompt = "    ";
-        boolean isMulti = false;
+        volatile int lines = 0;
         Pattern p = Pattern.compile("(\r?\n|\r)");
+        StringBuffer sb = new StringBuffer(32767);
+        String ansi = null;
+        String errorAnsi = null;
+        int adj = 0;
+        boolean enabled = true;
+        AttributedString as = null;
+        Pattern p1 = Pattern.compile("([^\\s\\|;/]+)(.*)");
+        AttributedStringBuilder asb = new AttributedStringBuilder();
+        String prev = null;
+        int sub = 0;
 
-        public Parser() {
+        public MyParser() {
             super();
+            setAnsi("\033[0m");
             super.setEofOnEscapedNewLine(true);
             reader.setVariable(SECONDARY_PROMPT_PATTERN, secondPrompt);
             reader.setOpt(LineReader.Option.AUTO_FRESH_LINE);
         }
 
+        public final String getLines() {
+            if (lines < 0) ++lines;
+            return lines > 0 ? null : sb.toString();
+        }
+
         public ParsedLine parse(String line, int cursor, ParseContext context) {
-            if (!isPrompt) return null;
+
+            if (!isPrompt && line == null) return null;
             if (context == ParseContext.COMPLETE) return super.parse(line, cursor, context);
             if (context != ParseContext.ACCEPT_LINE) return null;
 
-            String[] lines = null;
+            if (lines <= 0) sb.setLength(0);
+
+            else {
+                ++lines;
+                sb.append('\n');
+            }
+            sb.append(line);
 
             if (parserCallback == null) {
                 lua.load("return {call=env.parse_line}", "proxy");
@@ -474,20 +522,100 @@ public class Console {
                 lua.pop(1);
             }
 
-            if (lines == null) lines = p.split(line);
             Object[] result = parserCallback.call(line);
+
             if ((Boolean) result[0]) {
                 if (result.length > 1 && !secondPrompt.equals(result[1])) {
                     secondPrompt = (String) result[1];
                     reader.setVariable(SECONDARY_PROMPT_PATTERN, secondPrompt);
                 }
-                isMulti = true;
-                throw err;
+                if (lines <= 0) {
+                    lines = 1;
+                    reader.setVariable(DISABLE_HISTORY, true);
+                }
+                return null;
             }
+            if (lines > 0) {
+                if (lines <= 20) {
+                    reader.setVariable(DISABLE_HISTORY, false);
+                    history.add(sb.toString());
+                    reader.setVariable(DISABLE_HISTORY, true);
+                }
+                lines = -1;
+            } else lines = 0;
             if ((Boolean) result[2]) terminal.pause();
-            reader.setVariable(DISABLE_HISTORY, lines.length > Math.min(25, terminal.getHeight() - 5));
-            isMulti = false;
             return null;
+        }
+
+        public void setAnsi(String ansi) {
+            if (ansi.equals(this.ansi)) return;
+            this.ansi = ansi;
+            Matcher m = numPattern.matcher(ansi);
+            m.find();
+            this.errorAnsi = Integer.valueOf(m.group(1)) > 50 ? "\33[91m" : "\33[31m";
+            enabled = !ansi.equals("\33[0m");
+            for (String key : colors.keySet()) {
+                String value;
+                switch (key) {
+                    case "bf":
+                        value = "\33[91m";
+                        break;
+                    case "fu":
+                        value = ansi;
+                        break;
+                    case "rs":
+                        value = "\33[95m";
+                        break;
+                    default:
+                        value = ansi;
+                        break;
+                }
+                colors.put(key, value);
+            }
+        }
+
+        public AttributedString highlight(LineReader reader, String buffer) {
+            try {
+                final int len = buffer.length();
+                if (sub > 0 && len >= sub && buffer.substring(0, sub).equals(prev)) {
+                    asb.append(buffer.substring(sub));
+                    prev = buffer;
+                    sub = len;
+                    return asb.toAttributedString();
+                }
+                sub *= 0;
+                asb.setLength(0);
+
+                if (len == 0) {
+
+                } else if (buffer.charAt(0) == '\33') {
+                    asb.ansiAppend(buffer);
+                } else {
+                    if (Console.this.isSubSystem) {
+                        asb.appendAnsi(ansi);
+                        asb.append(buffer);
+                    } else if (lines != 0) {
+                        asb.ansiAppend(ansi).append(buffer);
+                    } else {
+                        Matcher m = p1.matcher(buffer);
+                        if (enabled && m.find()) {
+                            if (!commands.containsKey(m.group(1).toUpperCase())) {
+                                asb.ansiAppend(errorAnsi).append(m.group(1)).ansiAppend(ansi).append(m.group(2));
+                            } else {
+                                asb.ansiAppend(ansi).append(buffer);
+                            }
+                            if (!m.group(2).equals("")) {
+                                prev = buffer;
+                                sub = prev.length();
+                            }
+                        } else asb.append(buffer);
+                    }
+                }
+                return asb.toAttributedString();
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw e;
+            }
         }
     }
 }

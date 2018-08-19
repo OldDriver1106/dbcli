@@ -807,13 +807,20 @@ local function _eval_line(line,exec,is_internal,not_skip)
     end
 end
 
-local _cmd,_args,_errs
+local _cmd,_args,_errs,_line_stacks=nil,nil,nil,{}
 function env.parse_line(line)
-    multi_cmd,curr_stmt=nil,nil
-    env.CURRENT_PROMPT=env.PRI_PROMPT
-    _cmd,_args,_errs=eval_line(line,false)
+    if(#_line_stacks==0) then
+        multi_cmd,curr_stmt=nil,nil
+        env.CURRENT_PROMPT=env.PRI_PROMPT 
+    end
+    _line_stacks[#_line_stacks+1]=line
+    _cmd,_args,_errs=_eval_line(line,false)
+    local is_not_end=env.CURRENT_PROMPT==env.MTL_PROMPT
+    if not is_not_end then
+        _line_stacks={}
+    end
     local is_block=env._CMDS[_cmd] and env._CMDS[_cmd].ISBLOCKNEWLINE or false
-    return env.CURRENT_PROMPT==env.MTL_PROMPT,env.CURRENT_PROMPT,is_block
+    return is_not_end,env.CURRENT_PROMPT,is_block
 end
 
 function env.execute_line()

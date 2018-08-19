@@ -200,6 +200,7 @@ end
 
 function ansi.clear_screen()
     os.execute(env.PLATFORM=='windows' and "cls" or "clear")
+    reader:clearScreen();
 end
 
 function ansi.define_color(name,value,module,description)

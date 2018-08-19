@@ -23,7 +23,7 @@ public class TestAnsi {
             AttributedStringBuilder sb = new AttributedStringBuilder();
             sb.appendAnsi(HIC);
             sb.append(buffer);
-            //sb.append(NOR);
+            //asb.append(NOR);
             return sb.toAttributedString();
         });
 

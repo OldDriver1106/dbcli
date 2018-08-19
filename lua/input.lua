@@ -38,7 +38,9 @@ while true do
         break 
     end
     if ccolor=="" then ccolor="\27[0m" end
-    line=readLine(console,prompt_color:format(ncolor,env._SUBSYSTEM and subcolor or pcolor,prompt,ncolor,empty),ccolor)
+    line=readLine(console,
+        prompt_color:format(ncolor,env._SUBSYSTEM and subcolor or pcolor,prompt,ncolor,empty),
+        env.CURRENT_PROMPT==env.PRI_PROMPT and ccolor or nil)
     if line then
         eval()
     else

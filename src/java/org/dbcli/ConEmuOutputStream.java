@@ -17,23 +17,21 @@ public class ConEmuOutputStream extends OutputStream {
         Native.register(ConEmuOutputStream.class, nativeLibrary);
     }
 
-    static final native boolean WriteProcessed(String in_lpBuffer, int in_nLength, IntByReference out_lpNumberOfCharsWritten);
-
-    static final native boolean WriteProcessed3(String in_lpBuffer, int in_nLength, IntByReference out_lpNumberOfCharsWritten, Pointer in_hConsoleOutput);
-
     private final Pointer console;
     private ByteBuffer buff = ByteBuffer.allocateDirect(8196);
     private IntByReference charsWritten = new IntByReference();
-
     public ConEmuOutputStream() {
         this(Kernel32.INSTANCE.GetStdHandle(Kernel32.STD_OUTPUT_HANDLE));
     }
-
     public ConEmuOutputStream(Pointer console) {
         super();
         this.console = console;
         this.buff.order(ByteOrder.nativeOrder());
     }
+
+    static final native boolean WriteProcessed(String in_lpBuffer, int in_nLength, IntByReference out_lpNumberOfCharsWritten);
+
+    static final native boolean WriteProcessed3(String in_lpBuffer, int in_nLength, IntByReference out_lpNumberOfCharsWritten, Pointer in_hConsoleOutput);
 
     @Override
     public final synchronized void write(final int b) throws IOException {

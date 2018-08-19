@@ -33,23 +33,19 @@ import java.util.zip.InflaterInputStream;
 public class Loader {
 
     public static String ReloadNextTime = "_init_";
-    static LuaState lua;
-    static Console console;
     public static String root = "";
     public static String libPath;
+    static LuaState lua;
+    static Console console;
+    private static Loader loader = null;
     KeyMap keyMap;
     KeyListner q;
     Future sleeper;
+    Pattern pbase = Pattern.compile("(\\S{64,64}[\n\r])%1+");
     private volatile CallableStatement stmt = null;
     private Sleeper runner = new Sleeper();
     private volatile ResultSet rs;
     private IOException CancelError = new IOException("Statement is aborted.");
-    private static Loader loader = null;
-
-    public static Loader get() throws Exception {
-        if (loader == null) loader = new Loader();
-        return loader;
-    }
 
     private Loader() throws Exception {
         try {
@@ -89,12 +85,9 @@ public class Loader {
         });
     }
 
-    public void resetLua() {
-        console.setLua(lua);
-    }
-
-    public void mkdir(String path) {
-        new File(path).mkdirs();
+    public static Loader get() throws Exception {
+        if (loader == null) loader = new Loader();
+        return loader;
     }
 
     public static Exception getRootCause(Exception e) {
@@ -106,7 +99,7 @@ public class Loader {
     public static void loadLua(Loader loader, String args[]) throws Exception {
         lua = new LuaState();
         lua.pushGlobal("loader", loader);
-        console.isSubSystem=false;
+        console.isSubSystem = false;
         console.setLua(lua);
 
         if (console.writer != null) {
@@ -125,7 +118,7 @@ public class Loader {
             sb.append(readline + "\n");
         }
         br.close();
-        //System.out.println(sb.toString());
+        //System.out.println(asb.toString());
         lua.load(sb.toString(), input);
         if (ReloadNextTime != null && ReloadNextTime.equals("_init_")) ReloadNextTime = null;
         ArrayList<String> list = new ArrayList<>(args.length);
@@ -166,6 +159,24 @@ public class Loader {
         //console.threadPool.shutdown();
     }
 
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    public void resetLua() {
+        console.setLua(lua);
+    }
+
+    public void mkdir(String path) {
+        new File(path).mkdirs();
+    }
+
     public void addPath(String file) throws Exception {
         URLClassLoader classLoader = (URLClassLoader) lua.getClassLoader();
         Class<URLClassLoader> clazz = URLClassLoader.class;
@@ -179,7 +190,6 @@ public class Loader {
             map.put(s, true);
         System.setProperty("java.class.path", String.join(File.pathSeparator, map.keySet().toArray(new String[0])));
     }
-
 
     public void copyClass(String className) throws Exception {
         JavaAgent.copyFile(null, className.replace("\\.", "/"), null);
@@ -240,18 +250,6 @@ public class Loader {
                 return count;
             }
         });
-    }
-
-    Pattern pbase = Pattern.compile("(\\S{64,64}[\n\r])%1+");
-
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i + 1), 16));
-        }
-        return data;
     }
 
     public byte[] Base642Bytes(String base64) {

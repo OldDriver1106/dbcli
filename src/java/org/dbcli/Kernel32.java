@@ -294,6 +294,7 @@ interface Kernel32 extends StdCallLibrary {
 
         public CHAR_INFO() {
         }
+
         public CHAR_INFO(char c, short attr) {
             uChar = new UnionChar(c);
             Attributes = attr;
@@ -370,6 +371,7 @@ interface Kernel32 extends StdCallLibrary {
         private static String[] fieldOrder = {"X", "Y"};
         public short X;
         public short Y;
+
         public COORD() {
         }
 
@@ -505,8 +507,10 @@ interface Kernel32 extends StdCallLibrary {
         public short Top;
         public short Right;
         public short Bottom;
+
         public SMALL_RECT() {
         }
+
         public SMALL_RECT(SMALL_RECT org) {
             this(org.Top, org.Left, org.Bottom, org.Right);
         }

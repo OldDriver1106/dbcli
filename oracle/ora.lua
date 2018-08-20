@@ -76,7 +76,7 @@ function db:check_obj(obj_name)
             INTO   t1
             FROM   all_objects
             WHERE  owner IN ('SYS', 'PUBLIC')
-            AND    regexp_like(object_name, '^(G?V\_?\$|DBA|DBMS|UTL)')
+            AND    regexp_like(object_name, '^(G?V\_?\$|DBA|CDB|DBMS|UTL)')
             AND    subobject_name IS NULL
             AND    object_type not like '% BODY'
             GROUP  BY object_name;
@@ -109,7 +109,9 @@ function db:check_obj(obj_name)
         --printer.write("Done.\n")
     end
     if obj and cache_obj[obj] then return cache_obj[obj] end
+    env.var._prevent_restore=true
     db.C.ora:run_script('_find_object',obj_name,1)
+    env.var._prevent_restore=nil
     local args={
         target=obj_name,
         owner=env.var.get_input('OBJECT_OWNER'),

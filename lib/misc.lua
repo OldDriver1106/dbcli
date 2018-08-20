@@ -194,6 +194,20 @@ function math.round(exact, quantum)
     return quantum * (quant + (frac > 0.5 and 1 or 0))
 end
 
+function table.clone (t) -- deep-copy a table
+    if type(t) ~= "table" then return t end
+    local meta = getmetatable(t)
+    local target = {}
+    for k, v in pairs(t) do
+        if type(v) == "table" then
+            target[k] = table.clone(v)
+        else
+            target[k] = v
+        end
+    end
+    setmetatable(target, meta)
+    return target
+end
 
 function table.dump(tbl,indent,maxdep,tabs)
     maxdep=tonumber(maxdep) or 9

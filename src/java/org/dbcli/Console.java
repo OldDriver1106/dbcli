@@ -69,15 +69,15 @@ public class Console {
     private Status status;
 
     public Console(String historyLog) throws Exception {
-        String colorPlan = "dbcli";/*
+        String colorPlan = "dbcli";
+        /*
         if (OSUtils.IS_WINDOWS && !(OSUtils.IS_CYGWIN || OSUtils.IS_MSYSTEM)) {
             colorPlan = System.getenv("ANSICON_DEF");
             if (colorPlan == null) colorPlan = "jline";
             String ansicon = System.getenv("ANSICON");
             if (ansicon != null && ansicon.split("\\d+").length >= 3) colorPlan = "native";
-            terminal = JansiWinSysTerminal.createTerminal(colorPlan, null, false, null, 0, true, Terminal.SignalHandler.SIG_IGN, false);
-        } else*/
-        this.terminal = (AbstractTerminal) TerminalBuilder.builder().system(true).jna(false).jansi(true).signalHandler(Terminal.SignalHandler.SIG_IGN).nativeSignals(true).build();
+         }*/
+        this.terminal = (AbstractTerminal) TerminalBuilder.builder().name(colorPlan).system(true).jna(false).jansi(true).signalHandler(Terminal.SignalHandler.SIG_IGN).nativeSignals(true).build();
         this.status = this.terminal.getStatus();
         this.display = new Display(terminal, false);
         this.reader = (LineReaderImpl) LineReaderBuilder.builder().terminal(terminal).build();
@@ -88,7 +88,7 @@ public class Console {
         this.reader.setHistory(history);
         //this.reader.setOpt(LineReader.Option.DISABLE_HIGHLIGHTER);
         this.reader.setOpt(LineReader.Option.CASE_INSENSITIVE);
-        this.reader.setOpt(LineReader.Option.MOUSE);
+        //this.reader.setOpt(LineReader.Option.MOUSE);
         this.reader.setOpt(LineReader.Option.AUTO_FRESH_LINE);
         this.reader.setOpt(LineReader.Option.BRACKETED_PASTE);
         this.reader.setVariable(DISABLE_HISTORY, false);
@@ -106,6 +106,15 @@ public class Console {
         input = terminal.reader();
 
         writer = terminal.writer();
+
+        if (OSUtils.IS_WINDOWS && !(OSUtils.IS_CYGWIN || OSUtils.IS_MSYSTEM)) {
+            colorPlan = System.getenv("ANSICON_DEF");
+            if (colorPlan == null) colorPlan = "jline";
+            String ansicon = System.getenv("ANSICON");
+            if (ansicon != null && ansicon.split("\\d+").length >= 3) colorPlan = "native";
+            if (colorPlan.equals("ansicon")) writer = new PrintWriter(new ConEmuOutputStream());
+        }
+
         threadID = Thread.currentThread().getId();
         Interrupter.handler = terminal.handle(Terminal.Signal.INT, new Interrupter());
         callback = new EventCallback() {
@@ -341,7 +350,7 @@ public class Console {
             return line;
         } catch (Exception e) {
             //e.printStackTrace();
-            callback.call(null, "CTRL+C");
+            terminal.raise(Terminal.Signal.INT);
             return "";
         } finally {
             if (!isPrompt) {
@@ -392,11 +401,14 @@ public class Console {
             write("Input key code for '" + keyEvent + "'(hit Enter to complete): ");
             int c;
             StringBuilder sb = new StringBuilder();
+            boolean isPause = terminal.paused();
+            if (isPause) terminal.resume();
             while (true) {
                 c = reader.readCharacter();
                 if (c == 10 || c == 13) break;
                 sb.append(new String(Character.toChars(c)));
             }
+            if (isPause) terminal.pause();
             keySeq = sb.toString();
             keyCode = KeyMap.display(keySeq);
             write(keyCode + "\n");
@@ -476,21 +488,22 @@ public class Console {
         public Map<String, Object> commands = new HashMap();
         String secondPrompt = "    ";
         volatile int lines = 0;
-        Pattern p = Pattern.compile("(\r?\n|\r)");
         StringBuffer sb = new StringBuffer(32767);
         String ansi = null;
         String errorAnsi = null;
-        int adj = 0;
         boolean enabled = true;
-        AttributedString as = null;
-        Pattern p1 = Pattern.compile("([^\\s\\|;/]+)(.*)");
+        Pattern p1 = Pattern.compile("^(\\s*)([^\\s\\|;/]+)(.*)$");
         AttributedStringBuilder asb = new AttributedStringBuilder();
+        final AttributedString empty = asb.toAttributedString();
+
         String prev = null;
         int sub = 0;
+        final String NOR = "\033[0m";
+
 
         public MyParser() {
             super();
-            setAnsi("\033[0m");
+            setAnsi(NOR);
             super.setEofOnEscapedNewLine(true);
             reader.setVariable(SECONDARY_PROMPT_PATTERN, secondPrompt);
             reader.setOpt(LineReader.Option.AUTO_FRESH_LINE);
@@ -502,7 +515,6 @@ public class Console {
         }
 
         public ParsedLine parse(String line, int cursor, ParseContext context) {
-
             if (!isPrompt && line == null) return null;
             if (context == ParseContext.COMPLETE) return super.parse(line, cursor, context);
             if (context != ParseContext.ACCEPT_LINE) return null;
@@ -553,7 +565,7 @@ public class Console {
             Matcher m = numPattern.matcher(ansi);
             m.find();
             this.errorAnsi = Integer.valueOf(m.group(1)) > 50 ? "\33[91m" : "\33[31m";
-            enabled = !ansi.equals("\33[0m");
+            enabled = !ansi.equals(NOR);
             for (String key : colors.keySet()) {
                 String value;
                 switch (key) {
@@ -574,41 +586,60 @@ public class Console {
             }
         }
 
+        private final AttributedStringBuilder processQuoter(String buffer) {
+            char c;
+            boolean found;
+            if (!enabled) asb.append(buffer);
+            else
+                for (int i = 0, n = buffer.length(); i < n; i++) {
+                    c = buffer.charAt(i);
+                    found = c == '(' || c == ')' || c == '{' || c == '}'||c==',';
+                    if (found) asb.ansiAppend(NOR);
+                    asb.append(c);
+                    if (found) asb.ansiAppend(ansi);
+                }
+            return asb;
+        }
+
         public AttributedString highlight(LineReader reader, String buffer) {
             try {
                 final int len = buffer.length();
                 if (sub > 0 && len >= sub && buffer.substring(0, sub).equals(prev)) {
-                    asb.append(buffer.substring(sub));
-                    prev = buffer;
-                    sub = len;
+                    if (len > sub) {
+                        processQuoter(buffer.substring(sub));
+                        prev = buffer;
+                        sub = len;
+                    }
                     return asb.toAttributedString();
                 }
                 sub *= 0;
                 asb.setLength(0);
 
                 if (len == 0) {
-
+                    return empty;
                 } else if (buffer.charAt(0) == '\33') {
                     asb.ansiAppend(buffer);
+                } else if (!enabled) {
+                    asb.ansiAppend(ansi).append(buffer);
                 } else {
-                    if (Console.this.isSubSystem) {
-                        asb.appendAnsi(ansi);
-                        asb.append(buffer);
-                    } else if (lines != 0) {
-                        asb.ansiAppend(ansi).append(buffer);
+                    if (Console.this.isSubSystem || lines != 0) {
+                        asb.ansiAppend(ansi);
+                        processQuoter(buffer);
                     } else {
                         Matcher m = p1.matcher(buffer);
-                        if (enabled && m.find()) {
-                            if (!commands.containsKey(m.group(1).toUpperCase())) {
-                                asb.ansiAppend(errorAnsi).append(m.group(1)).ansiAppend(ansi).append(m.group(2));
+                        if (m.find()) {
+                            if (!commands.containsKey(m.group(2).toUpperCase())) {
+                                asb.ansiAppend(m.group(1)).ansiAppend(errorAnsi).append(m.group(2)).ansiAppend(ansi);
+                                processQuoter(m.group(3));
                             } else {
-                                asb.ansiAppend(ansi).append(buffer);
+                                asb.ansiAppend(ansi);
+                                processQuoter(buffer);
                             }
-                            if (!m.group(2).equals("")) {
+                            if (!m.group(3).equals("")) {
                                 prev = buffer;
                                 sub = prev.length();
                             }
-                        } else asb.append(buffer);
+                        } else processQuoter(buffer);
                     }
                 }
                 return asb.toAttributedString();

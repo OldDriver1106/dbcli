@@ -3,17 +3,17 @@ set feed off verify off
 ora _find_object &V1
 var text varchar2(32767)
 DECLARE
-    usr       VARCHAR2(30) := :object_owner;
-    org_table VARCHAR2(30) := :object_name;
-    part_name VARCHAR2(30) := :object_subname;
-    new_table VARCHAR2(30) := UPPER('&V2');
+    usr       VARCHAR2(128) := :object_owner;
+    org_table VARCHAR2(128) := :object_name;
+    part_name VARCHAR2(128) := :object_subname;
+    new_table VARCHAR2(128) := UPPER('&V2');
     
     v_sql VARCHAR2(32767) := q'{
         DECLARE 
-            usr             VARCHAR2(30) := '@user';  --Table owner
-            org_table       VARCHAR2(30) := '@org_table'; --Table to be redefined
-            new_table       VARCHAR2(30) := '@new_table'; --The interim table
-            part_name       VARCHAR2(30) := '@part_name'; --Partition name of org_table
+            usr             VARCHAR2(128) := '@user';  --Table owner
+            org_table       VARCHAR2(128) := '@org_table'; --Table to be redefined
+            new_table       VARCHAR2(128) := '@new_table'; --The interim table
+            part_name       VARCHAR2(128) := '@part_name'; --Partition name of org_table
             parallel_degree PLS_INTEGER  := 16;
             options_flag    PLS_INTEGER;
             cnt             PLS_INTEGER;

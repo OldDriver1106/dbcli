@@ -20,9 +20,11 @@ public class ConEmuOutputStream extends OutputStream {
     private final Pointer console;
     private ByteBuffer buff = ByteBuffer.allocateDirect(8196);
     private IntByReference charsWritten = new IntByReference();
+
     public ConEmuOutputStream() {
         this(Kernel32.INSTANCE.GetStdHandle(Kernel32.STD_OUTPUT_HANDLE));
     }
+
     public ConEmuOutputStream(Pointer console) {
         super();
         this.console = console;

@@ -48,7 +48,11 @@ if not defined ANSICON if defined ANSICON_CMD (
    SET ANSICON_EXC=nvd3d9wrap.dll;nvd3d9wrapx.dll
    SET ANSICON_DEF=ansicon
    if "!bit!"=="x86" set "ANSICON_CMD=.\lib\x86\ConEmuHk.dll"
-   if not exist "!ANSICON_CMD!" set "ANSICON_DEF=jline"
+   if not exist "!ANSICON_CMD!" (
+       set "ANSICON_DEF=jline"
+   ) else (
+       set "ConEmuANSI=ON"
+   )
    set "ANSICON_CMD="
 )
 

@@ -207,7 +207,7 @@ end
 
 function ResultSet:close(rs)
     if rs then
-        if not rs:isClosed() then rs:close() end
+        if rs.isClosed and not rs:isClosed() then rs:close() end
         if self[rs] then self[rs]=nil end
     end
     local clock=os.timer()

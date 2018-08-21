@@ -17,6 +17,7 @@ import org.jline.reader.impl.history.DefaultHistory;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.terminal.impl.AbstractTerminal;
+import org.jline.terminal.impl.jansi.win.JansiWinConsoleWriter;
 import org.jline.utils.*;
 
 import java.awt.event.ActionEvent;
@@ -88,7 +89,7 @@ public class Console {
         this.reader.setHistory(history);
         //this.reader.setOpt(LineReader.Option.DISABLE_HIGHLIGHTER);
         this.reader.setOpt(LineReader.Option.CASE_INSENSITIVE);
-        //this.reader.setOpt(LineReader.Option.MOUSE);
+        this.reader.unsetOpt(LineReader.Option.MOUSE);
         this.reader.setOpt(LineReader.Option.AUTO_FRESH_LINE);
         this.reader.setOpt(LineReader.Option.BRACKETED_PASTE);
         this.reader.setVariable(DISABLE_HISTORY, false);
@@ -110,9 +111,10 @@ public class Console {
         if (OSUtils.IS_WINDOWS && !(OSUtils.IS_CYGWIN || OSUtils.IS_MSYSTEM)) {
             colorPlan = System.getenv("ANSICON_DEF");
             if (colorPlan == null) colorPlan = "jline";
-            String ansicon = System.getenv("ANSICON");
-            if (ansicon != null && ansicon.split("\\d+").length >= 3) colorPlan = "native";
-            if (colorPlan.equals("ansicon")) writer = new PrintWriter(new ConEmuOutputStream());
+            if (colorPlan.equals("native"))
+                writer = new PrintWriter(System.out);
+            else if (colorPlan.equals("ansicon"))
+                writer = new PrintWriter(new ConEmuOutputStream());
         }
 
         threadID = Thread.currentThread().getId();
@@ -420,9 +422,9 @@ public class Console {
     }
 
     public interface CLibrary extends Library {
-        Console.CLibrary INSTANCE = (Console.CLibrary)
+        CLibrary INSTANCE = (CLibrary)
                 Native.loadLibrary((Platform.isWindows() ? "kernel32" : "c"),
-                        Console.CLibrary.class);
+                        CLibrary.class);
 
         boolean SetConsoleTitleA(String title);
     }
@@ -477,7 +479,7 @@ public class Console {
         }
     }
 
-    class MyParser extends DefaultParser implements org.jline.reader.Highlighter {
+    class MyParser extends DefaultParser implements Highlighter {
         public static final String DEFAULT_HIGHLIGHTER_COLORS = "rs=1:st=2:nu=3:co=4:va=5:vn=6:fu=7:bf=8:re=9";
         public final Pattern numPattern = Pattern.compile("([0-9]+)");
         public String buffer = null;
@@ -530,7 +532,7 @@ public class Console {
             if (parserCallback == null) {
                 lua.load("return {call=env.parse_line}", "proxy");
                 lua.call(0, 1);
-                parserCallback = lua.getProxy(-1, Console.ParserCallback.class);
+                parserCallback = lua.getProxy(-1, ParserCallback.class);
                 lua.pop(1);
             }
 
@@ -625,6 +627,8 @@ public class Console {
                     if (Console.this.isSubSystem || lines != 0) {
                         asb.ansiAppend(ansi);
                         processQuoter(buffer);
+                        prev = buffer;
+                        sub = prev.length();
                     } else {
                         Matcher m = p1.matcher(buffer);
                         if (m.find()) {

@@ -128,8 +128,8 @@ SELECT /*+ ORDERED*/
      &_lhp_what,
      s.total_samples,
      s.dist_samples,
-     round(s.total_samples / r * 100,4) latchprof_pct_total_samples,
-     round((t2.hsecs - t1.hsecs) * 10 * s.total_samples / r,4) latchprof_total_ms,
-     ROUND((t2.hsecs - t1.hsecs) * 10 * s.total_samples / dist_samples / r,4) latchprof_avg_ms
+     round(s.total_samples / r * 100,4) "Held %",
+     round((t2.hsecs - t1.hsecs) * 10 * s.total_samples / r,4)  "Held ms" ,
+     ROUND((t2.hsecs - t1.hsecs) * 10 * s.total_samples / dist_samples / r,4) "Avg hold ms"
 FROM   t1, samples s, t2
 WHERE  ROWNUM <= 50;

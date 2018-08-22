@@ -64,9 +64,12 @@ WITH
             &fields
           , COUNT(DISTINCT gets)           dist_samples
           , COUNT(*)                       total_samples
-          , COUNT(*)/max(r)                sample_rate
+          , COUNT(*)/max(max(r)) over()    sample_rate
         FROM
-            (SELECT hsecs+&v3*100 target,rownum r FROM v$timer CONNECT BY LEVEL <= &v3*3e4) s1,
+            (SELECT hsecs+&v3*100 target,rownum r 
+             FROM v$timer
+             WHERE  userenv('instance')=nvl(:instance,userenv('instance'))
+             CONNECT BY LEVEL <= &v3*5e4) s1,
             (select hsecs from v$timer) s2,
             v$latchholder l,
             (SELECT /*+MERGE MERGE(s)*/ userenv('instance') inst_id
@@ -84,7 +87,7 @@ WITH
     )))
     ORDER BY total_samples DESC),
     t2 AS (SELECT hsecs FROM v$timer)
-SELECT /*+ ORDERED GATHER_PLAN_STATISTICS*/
+SELECT /*+ ORDERED monitor*/
        &fields,
        s.total_samples "Held",
        s.dist_samples "Gets",

@@ -3,7 +3,7 @@
   Usage:       @@NAME [<sid>] [<what>] [<latch name>] [<seconds>] [-func|-block]
     --[[
         &V1: default={%}
-        &V2: default={sess#,name,hmode,wait_obj#,sql_id} func={sess#,name,sql_id,object,func} block={sess#,name,sql_id,wait_obj#,block}
+        &V2: default={sess#,name,hmode,wait_obj#,sql_id} func={sess#,name,sql_id,object,func} block={sess#,name,sql_id,wait_obj#,block#}
         &V3: default={%}
         &v4: default={5}
         @GV: 11.1={TABLE(GV$(CURSOR(} default={(((}
@@ -90,8 +90,12 @@ WITH t1 AS
 samples AS
  (SELECT * FROM &GV
       SELECT  /*+ opt_param('_optimizer_mjc_enabled','true') ORDERED ORDERED_PREDICATES USE_NL(s2 l) NO_TRANSFORM_DISTINCT_AGG */
-              &_lhp_what, COUNT(DISTINCT gets) dist_samples, COUNT(*) total_samples, COUNT(*) / max(r) total_samples_pct,max(r) r
-      FROM   (SELECT /*+no_merge*/KSUTMTIM+:v4*100 target, rownum r FROM x$ksutm CONNECT BY LEVEL <= &v4*4e4) s1,
+              &_lhp_what, COUNT(DISTINCT gets) dist_samples, COUNT(*) total_samples, 
+              COUNT(*) / max(max(r)) over() total_samples_pct,max(max(r)) over() r
+      FROM   (SELECT /*+no_merge*/KSUTMTIM+:v4*100 target, rownum r 
+              FROM   x$ksutm
+              WHERE  userenv('instance')=nvl(:instance,userenv('instance')) 
+              CONNECT BY LEVEL <= &v4*7e4) s1,
              (SELECT /*+no_merge*/KSUTMTIM hsecs FROM x$ksutm) s2,
              (SELECT /*+order use_nl(l s w) no_expand no_merge*/
                      l.ksuprpid PID,
@@ -109,8 +113,7 @@ samples AS
                      s.ksusesch sqlchild,
                      s.ksusesqi sql_id,
                      s.ksuseobj wait_obj#,
-                     s.ksusefil||','||s.ksuseblk block#,
-                     w.ksllwnam func,
+                     nvl2(nullif(s.ksusefil,0),s.ksusefil||','||s.ksuseblk,'') block#,
                      w.ksllwlbl objtype
              FROM    x$ksuprlat l, x$ksuse s, x$ksllw w
              WHERE   l.ksuprsid = s.indx

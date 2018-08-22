@@ -1,3 +1,5 @@
+2018-08-22: + public: support status bar and relative option "set status on/off", unsupported in ConEmu and Legacy Windows Console
+            + oracle: add Tanel Poder's script "ora waitprof"
 2018-08-21: * oracle: performance optimization on some frequent commands(getDbmsOutput/findObject/checkAccess) 
 2018-08-20: + public: new option "set readonly on/off" to support read-only db connection
             * public: performance improvement of paste, and special colors on the input of "(" , ")" and ","

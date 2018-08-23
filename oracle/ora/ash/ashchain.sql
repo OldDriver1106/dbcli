@@ -6,6 +6,7 @@ This script references Tanel Poder's script
         &V8    : ash={gv$active_session_history},dash={Dba_Hist_Active_Sess_History}
         &Filter: default={:V1 in(''||session_id,sql_id,sid)} -f={}
         &snap  : default={--}, snap={}
+        &pname : default={decode(session_type,'BACKGROUND',program2)} p={program2}
         &group : default={}, g={,&0}
         &grp1  : default={sql_ids}, sid={sids}, f={}
         &grp2  : default={sql_id}, sid={sid}, f={}
@@ -31,10 +32,11 @@ BEGIN
                         SESSION_ID||'@'||&INST1 SID,
                         nullif(blocking_session|| &INST,'@') b_sid,
                         u.username,
+                        greatest(current_obj#,-2) curr_obj#,
                         CASE WHEN a.session_type = 'BACKGROUND' OR REGEXP_LIKE(a.program, '.*\([PJ]\d+\)') THEN
-                          REGEXP_REPLACE(SUBSTR(a.program,INSTR(a.program,'(')), '\d', 'n')
+                            REGEXP_REPLACE(regexp_substr(a.program,'\([^\(]+\)'), '\d', 'n')
                         ELSE
-                            '('||REGEXP_REPLACE(REGEXP_REPLACE(a.program, '(.*)@(.*)(\(.*\))', '\1'), '\d', 'n')||')'
+                            '('||REGEXP_REPLACE(REGEXP_SUBSTR(a.program, '[^@]+'), '\d', 'n')||')'
                         END || ' ' program2,
                         NVL(a.event||CASE WHEN p3text='class#'
                                           THEN ' ['||(SELECT class FROM bclass WHERE r = a.p3)||']' ELSE null END,'ON CPU')
@@ -53,10 +55,10 @@ BEGIN
                       level lvl,
                       sid w_sid,
                       REPLACE(trim('>' from regexp_replace(SYS_CONNECT_BY_PATH(nvl(sql_id,program2)     , '>')||decode(connect_by_isleaf,1,nvl2(b_sid,'>(Idle)','')),'(>.+?)\1+','\1 +')), '>', ' > ') sql_ids,
-                      REPLACE(trim('>' from regexp_replace(SYS_CONNECT_BY_PATH(program2||event2, '>')||decode(connect_by_isleaf,1,nvl2(b_sid,'>(Idle)','')),'(>.+?)\1+','\1 +')), '>', ' > ') path, -- there's a reason why I'm doing this (ORA-30004 :)
+                      REPLACE(trim('>' from regexp_replace(SYS_CONNECT_BY_PATH(&pname ||event2, '>')||decode(connect_by_isleaf,1,nvl2(b_sid,'>(Idle)','')),'(>.+?)\1+','\1 +')), '>', ' > ') path, -- there's a reason why I'm doing this (ORA-30004 :)
                       REPLACE(trim('>' from regexp_replace(SYS_CONNECT_BY_PATH(sid,'>')||decode(connect_by_isleaf,1,nullif('>'||b_sid,'>')),'(>.+?)\1+','\1 +')), '>', ' > ') sids,
                       &exec_id sql_exec,
-                      CONNECT_BY_ROOT current_obj# obj#,
+                      CONNECT_BY_ROOT curr_obj# obj#,
                       CONNECT_BY_ISLEAF isleaf,
                       CONNECT_BY_ISCYCLE iscycle,
                       d.*
@@ -65,7 +67,7 @@ BEGIN
                 START WITH (:V1 is null and b_sid is not null or &filter)
             )
             SELECT * FROM (
-                SELECT LPAD(ROUND(RATIO_TO_REPORT(COUNT(*)) OVER () * 100)||'%',5,' ') "%This",
+                SELECT to_char(RATIO_TO_REPORT(COUNT(*)) OVER () * 100,'990.00')||'%' "%This",
                        SUM(&UNIT) AAS,count(distinct sql_exec) execs, &secs
                        &snap w_sid, b_sid,
                        (SELECT nvl(max(object_name),decode(obj#,0,'Undo Header',-1,'Undo Block',''||obj#)) FROM &CHECK_ACCESS_OBJ WHERE object_id=obj#) Waiting_object
@@ -84,10 +86,11 @@ BEGIN
                         SESSION_ID||'@'||&INST1 SID,
                         nullif(blocking_session|| &INST,'@') b_sid,
                         u.username,
+                        greatest(current_obj#,-2) curr_obj#,
                         CASE WHEN a.session_type = 'BACKGROUND' OR REGEXP_LIKE(a.program, '.*\([PJ]\d+\)') THEN
-                          REGEXP_REPLACE(SUBSTR(a.program,INSTR(a.program,'(')), '\d', 'n')
+                            REGEXP_REPLACE(regexp_substr(a.program,'\([^\(]+\)'), '\d', 'n')
                         ELSE
-                            '('||REGEXP_REPLACE(REGEXP_REPLACE(a.program, '(.*)@(.*)(\(.*\))', '\1'), '\d', 'n')||')'
+                            '('||REGEXP_REPLACE(REGEXP_SUBSTR(a.program, '[^@]+'), '\d', 'n')||')'
                         END || ' ' program2,
                         NVL(a.event||CASE WHEN p3text='class#'
                                           THEN ' ['||(SELECT class FROM bclass WHERE r = a.p3)||']' ELSE null END,'ON CPU')
@@ -107,11 +110,12 @@ BEGIN
                        sid w_sid,
                        TRIM('>' FROM regexp_replace(SYS_CONNECT_BY_PATH(trim(decode(:grp2,'sql_id',nvl(sql_id, program2),&grp2)),'>') || 
                             decode(connect_by_isleaf, 1, nvl2(b_sid, decode(:grp2,'sid',b_sid,'(Idle)'), '')),'(>.+?)\1+','\1 \1')) sql_ids,
-                       TRIM('>' FROM regexp_replace(SYS_CONNECT_BY_PATH(TRIM(program2 || event2), '>') || decode(connect_by_isleaf, 1, nvl2(b_sid, '(Idle)', '')), '(>.+?)\1+', '\1 \1')) p, 
+                       TRIM('>' FROM regexp_replace(SYS_CONNECT_BY_PATH(TRIM(&pname || event2), '>') || decode(connect_by_isleaf, 1, nvl2(b_sid, '(Idle)', '')), '(>.+?)\1+', '\1 \1')) p, 
                        &exec_id sql_exec,
+                       connect_by_isleaf isleaf,
                        CONNECT_BY_ROOT decode(:grp2,'sql_id',nvl(sql_id, program2),&grp2) root_sql,
                        trim(decode(:grp2,'sql_id',nvl(sql_id, program2),&grp2)||decode(connect_by_isleaf, 1, nvl2(b_sid, ' > '||decode(:grp2,'sid',b_sid,'(Idle)'),'')))  sq_id,
-                       trim(program2 || event2||decode(connect_by_isleaf, 1, nvl2(b_sid, ' > (Idle)',''))) env,
+                       trim(&pname || event2||decode(connect_by_isleaf, 1, nvl2(b_sid, ' > (Idle)',''))) env,
                        COUNT(1) OVER(PARTITION BY CONNECT_BY_ROOT decode(:grp2,'sql_id',nvl(sql_id, program2),&grp2)) root_cnt,
                        d.*
                 FROM  ash_data d
@@ -119,10 +123,11 @@ BEGIN
                 START WITH (:V1 is null and b_sid is not null or &filter)),
             calc AS
              (SELECT root_cnt + COUNT(1) root_cnt,
-                     MAX(max(current_obj#)) OVER(ORDER BY COUNT(1) DESC) current_obj#,
+                     MAX(max(curr_obj#)) OVER(ORDER BY COUNT(1) DESC) current_obj#,
                      root_sql,
                      sql_ids,
                      p,
+                     SUM(&UNIT*isleaf) delta,
                      max(sq_id) sq_id,
                      to_char(RATIO_TO_REPORT(COUNT(*)) OVER () * 100,'990.00')||'%' pct,
                      max(env) env,
@@ -132,13 +137,14 @@ BEGIN
                      greatest(regexp_count(sql_ids,'>'),regexp_count(p,'>')) lvl
               FROM   chains
               GROUP  BY root_cnt, root_sql, sql_ids, p)
-            SELECT pct "This(%)",
-                   aas,
-                   execs, root_sql root_item,
+            SELECT pct "Pct",
+                   aas, 
+                   execs,
+                   delta "Leaf|-AAS",
                    (SELECT nvl(max(object_name),decode(current_obj#,0,'Undo Header',-1,'Undo Block',''||current_obj#)) FROM &CHECK_ACCESS_OBJ WHERE object_id=a.current_obj#) Waiting_object,
-                   decode(level,1,'',' |')||lpad(' ',(level-1)*2-1,' ')||' '||sq_id path_1,
-                   decode(level,1,'',' |')||lpad(' ',(level-1)*2-1,' ')||' '||env wait_event,
-                   replace(replace(replace(p,' >','(+)>'),'>',' > '),'(Idle)',' > (Idle)') full_path
+                   decode(level,1,'',' |')||lpad(' ',(level-1)*2-1,' ')||' '||sq_id wait_chain,
+                   decode(level,1,'',' |')||lpad(' ',(level-1)*2-1,' ')||' '||env event_chain,
+                   replace(replace(replace(p,' >','(+)>'),'>',' > '),'(Idle)',' > (Idle)') full_event_chain
             FROM   calc a
             WHERE r<=80
             START  WITH lvl = 0

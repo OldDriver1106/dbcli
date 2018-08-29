@@ -7,7 +7,7 @@ This script references Tanel Poder's script
         &Filter: default={:V1 in(''||session_id,sql_id,sid)} -f={}
         &snap  : default={--}, snap={}
         &pname : default={decode(session_type,'BACKGROUND',program2)} p={program2}
-        &group : default={}, g={,&0}
+        &group : default={curr_obj#}, p={p123}
         &grp1  : default={sql_ids}, sid={sids}, f={}
         &grp2  : default={sql_id}, sid={sid}, f={}
         &unit  : default={1}, dash={10}
@@ -16,11 +16,15 @@ This script references Tanel Poder's script
         @CHECK_ACCESS_OBJ  : dba_objects={&obj}, default={all_objects}
         @INST: 11.2={'@'|| BLOCKING_INST_ID}, default={''}
         @secs: 11.2={round(sum(least(delta_time,nvl(tm_delta_db_time,delta_time)))*1e-6,2) db_time,} default={&unit}
+        @io    : 11.2={sum(DELTA_INTERCONNECT_IO_BYTES) io,} default={null}
+        @io1   : 11.2={,io} default={}
         @exec_id:  11.2={CONNECT_BY_ROOT sql_id||nvl(sql_exec_id||to_char(sql_exec_start,'yymmddhh24miss'),session_id||','||&inst1||','||seq#) } default={null}
     --]]
 ]]*/
 
 col db_time format smhd2
+col io format KMG
+
 SET verify on feed off
 var cur refcursor
 BEGIN
@@ -34,16 +38,19 @@ BEGIN
                         u.username,
                         greatest(current_obj#,-2) curr_obj#,
                         CASE WHEN a.session_type = 'BACKGROUND' OR REGEXP_LIKE(a.program, '.*\([PJ]\d+\)') THEN
-                            REGEXP_REPLACE(regexp_substr(a.program,'\([^\(]+\)'), '\d', 'n')
+                            regexp_replace(REGEXP_REPLACE(regexp_substr(a.program,'\([^\(]+\)'), '\d\w\w', 'nnn'),'\d','n')
                         ELSE
                             '('||REGEXP_REPLACE(REGEXP_SUBSTR(a.program, '[^@]+'), '\d', 'n')||')'
                         END || ' ' program2,
                         NVL(a.event||CASE WHEN p3text='class#'
                                           THEN ' ['||(SELECT class FROM bclass WHERE r = a.p3)||']' ELSE null END,'ON CPU')
                                    || ' ' event2,
-                        TO_CHAR(CASE WHEN session_state = 'WAITING' THEN p1 ELSE null END, '0XXXXXXXXXXXXXXX') p1hex,
-                        TO_CHAR(CASE WHEN session_state = 'WAITING' THEN p2 ELSE null END, '0XXXXXXXXXXXXXXX') p2hex,
-                        TO_CHAR(CASE WHEN session_state = 'WAITING' THEN p3 ELSE null END, '0XXXXXXXXXXXXXXX') p3hex,
+                        replace(nvl2(p1text,p1text||' #'||case when p1>power(2,32) then to_char(p1,'0XXXXXXXXXXXXXXX') else ''||p1 end,'')
+                            ||nvl2(p2text,'/'||p2text||' #'||case when p2>power(2,32) then to_char(p2,'0XXXXXXXXXXXXXXX') else ''||p2 end,'')
+                            ||nvl2(p3text,'/'||p3text||' #'
+                                || case when p3>power(2,32) then to_char(p3,'0XXXXXXXXXXXXXXX') 
+                                        when p3text='class#' then (SELECT class FROM bclass WHERE r = a.p3) 
+                                        else ''||p3 end,''),'# #',' #') p123,
                         a.*
                     FROM  &V8 a, dba_users u
                     WHERE a.user_id = u.user_id (+)
@@ -58,7 +65,7 @@ BEGIN
                       REPLACE(trim('>' from regexp_replace(SYS_CONNECT_BY_PATH(&pname ||event2, '>')||decode(connect_by_isleaf,1,nvl2(b_sid,'>(Idle)','')),'(>.+?)\1+','\1 +')), '>', ' > ') path, -- there's a reason why I'm doing this (ORA-30004 :)
                       REPLACE(trim('>' from regexp_replace(SYS_CONNECT_BY_PATH(sid,'>')||decode(connect_by_isleaf,1,nullif('>'||b_sid,'>')),'(>.+?)\1+','\1 +')), '>', ' > ') sids,
                       &exec_id sql_exec,
-                      CONNECT_BY_ROOT curr_obj# obj#,
+                      CONNECT_BY_ROOT &group root_&group,
                       CONNECT_BY_ISLEAF isleaf,
                       CONNECT_BY_ISCYCLE iscycle,
                       d.*
@@ -68,13 +75,12 @@ BEGIN
             )
             SELECT * FROM (
                 SELECT to_char(RATIO_TO_REPORT(COUNT(*)) OVER () * 100,'990.00')||'%' "%This",
-                       SUM(&UNIT) AAS,count(distinct sql_exec) execs, &secs
+                       SUM(&UNIT) AAS,count(distinct sql_exec) execs, &secs &io
                        &snap w_sid, b_sid,
-                       (SELECT nvl(max(object_name),decode(obj#,0,'Undo Header',-1,'Undo Block',''||obj#)) FROM &CHECK_ACCESS_OBJ WHERE object_id=obj#) Waiting_object
-                       &group, &grp1, path wait_chain
+                       root_&group, &grp1, path wait_chain
                 FROM   chains c
                 WHERE  isleaf = 1
-                GROUP BY obj# &group , path,&grp1 &snap , w_sid, b_sid
+                GROUP BY root_&group, path,&grp1 &snap , w_sid, b_sid
                 ORDER BY AAS DESC
                 )
             WHERE ROWNUM <= 50;
@@ -88,17 +94,19 @@ BEGIN
                         u.username,
                         greatest(current_obj#,-2) curr_obj#,
                         CASE WHEN a.session_type = 'BACKGROUND' OR REGEXP_LIKE(a.program, '.*\([PJ]\d+\)') THEN
-                            REGEXP_REPLACE(regexp_substr(a.program,'\([^\(]+\)'), '\d', 'n')
+                            regexp_replace(REGEXP_REPLACE(regexp_substr(a.program,'\([^\(]+\)'), '\d\w\w', 'nnn'),'\d','n')
                         ELSE
                             '('||REGEXP_REPLACE(REGEXP_SUBSTR(a.program, '[^@]+'), '\d', 'n')||')'
                         END || ' ' program2,
                         NVL(a.event||CASE WHEN p3text='class#'
                                           THEN ' ['||(SELECT class FROM bclass WHERE r = a.p3)||']' ELSE null END,'ON CPU')
                                    || ' ' event2,
-                        TO_CHAR(CASE WHEN session_state = 'WAITING' THEN p1 ELSE null END, '0XXXXXXXXXXXXXXX') p1hex,
-                        TO_CHAR(CASE WHEN session_state = 'WAITING' THEN p2 ELSE null END, '0XXXXXXXXXXXXXXX') p2hex,
-                        TO_CHAR(CASE WHEN session_state = 'WAITING' THEN p3 ELSE null END, '0XXXXXXXXXXXXXXX') p3hex,
-                        a.*
+                        replace(nvl2(p1text,p1text||' #'||case when p1>power(2,32) then to_char(p1,'0XXXXXXXXXXXXXXX') else ''||p1 end,'')
+                            ||nvl2(p2text,'/'||p2text||' #'||case when p2>power(2,32) then to_char(p2,'0XXXXXXXXXXXXXXX') else ''||p2 end,'')
+                            ||nvl2(p3text,'/'||p3text||' #'
+                                || case when p3>power(2,32) then to_char(p3,'0XXXXXXXXXXXXXXX') 
+                                        when p3text='class#' then (SELECT class FROM bclass WHERE r = a.p3) 
+                                        else ''||p3 end,''),'# #',' #') p123,                        a.*
                     FROM  &V8 a, dba_users u
                     WHERE a.user_id = u.user_id (+)
               &snap AND   sample_time>=sysdate - nvl(:V1,60)/86400
@@ -123,7 +131,7 @@ BEGIN
                 START WITH (:V1 is null and b_sid is not null or &filter)),
             calc AS
              (SELECT root_cnt + COUNT(1) root_cnt,
-                     MAX(max(curr_obj#)) OVER(ORDER BY COUNT(1) DESC) current_obj#,
+                     max(&group) &group,
                      root_sql,
                      sql_ids,
                      p,
@@ -133,15 +141,16 @@ BEGIN
                      max(env) env,
                      COUNT(DISTINCT sql_exec) execs,
                      SUM(&UNIT) aas,
-                     ROW_NUMBER() OVER(ORDER BY COUNT(1) DESC,root_cnt desc,greatest(regexp_count(sql_ids,'>'),regexp_count(p,'>'))) R,
-                     greatest(regexp_count(sql_ids,'>'),regexp_count(p,'>')) lvl
+                     &io
+                     ROW_NUMBER() OVER(ORDER BY COUNT(1) DESC,root_cnt desc,greatest(length(sql_ids)-length(replace(sql_ids,'>')),length(p)-length(replace(p,'>')))) R,
+                     greatest(length(sql_ids)-length(replace(sql_ids,'>')),length(p)-length(replace(p,'>'))) lvl
               FROM   chains
               GROUP  BY root_cnt, root_sql, sql_ids, p)
-            SELECT pct "Pct",
+            SELECT  pct "Pct",
                    aas, 
                    execs,
-                   delta "Leaf|-AAS",
-                   (SELECT nvl(max(object_name),decode(current_obj#,0,'Undo Header',-1,'Undo Block',''||current_obj#)) FROM &CHECK_ACCESS_OBJ WHERE object_id=a.current_obj#) Waiting_object,
+                   delta "Leaf|-AAS" &io1,
+                   &group,
                    decode(level,1,'',' |')||lpad(' ',(level-1)*2-1,' ')||' '||sq_id wait_chain,
                    decode(level,1,'',' |')||lpad(' ',(level-1)*2-1,' ')||' '||env event_chain,
                    replace(replace(replace(p,' >','(+)>'),'>',' > '),'(Idle)',' > (Idle)') full_event_chain

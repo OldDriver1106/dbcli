@@ -202,8 +202,8 @@ function db:check_obj(obj_name,bypass_error,is_set_env)
     	args=table.clone(cache_obj[obj])
     else
     	args=table.clone(default_args)
-	    args.target,args.ignore=obj_name,bypass_error
-	    db:exec_cache(stmt,args,'GetDBMSOutput')
+	    args.target,args.ignore=obj_name,bypass_error or ""
+	    db:exec_cache(stmt,args,'FindObject')
 	    args.owner=args.object_owner
 	end
 

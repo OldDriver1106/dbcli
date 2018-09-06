@@ -19,7 +19,6 @@ function os.find_extension(exe)
     exe='"'..env.join_path(exe):trim('"')..'"'
     local nul=env.IS_WINDOWS and "NUL" or "/dev/null"
     local cmd=string.format("%s %s 2>%s", env.IS_WINDOWS and "where " or "which ",exe,nul)
-    print(cmd)
     local f=io.popen(cmd)
     local path
     for file in f:lines() do
@@ -88,7 +87,8 @@ function string.case_insensitive_pattern(pattern)
 end
 
 function string.trim(s,sep)
-    return s:match('^[%s%z]*(.-)[%s%z]*$')
+    sep='[%s%z'..(sep or '')..']'
+    return s:match('^'..sep..'*(.-)'..sep..'*$')
 end
 
 String=java.require("java.lang.String")

@@ -18,6 +18,7 @@
 \jre_mac\
 \temp\
 \ext\
+\emviewers\
 xmlparserv2.jar
 .sublime-project
 .sublime-workspace
@@ -32,8 +33,6 @@ ansicon.exe
 .7z
 jnlua.c
 Makefile
-mysql-connector.jar
-postgresql-jdbc.jar
 dbcli_F0.bat
 dbcli_nojre.bat
 dbcli_agent.bat

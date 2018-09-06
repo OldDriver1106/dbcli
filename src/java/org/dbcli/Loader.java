@@ -397,8 +397,10 @@ public class Loader {
             if (p.isClosed()) throw CancelError;
             return result;
         } catch (Exception e) {
+            //e.printStackTrace();
             throw e;
         } finally {
+            console.setEvents(null,null);
             this.stmt = null;
         }
     }

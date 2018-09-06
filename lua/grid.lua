@@ -15,12 +15,12 @@ local params = {
     PIVOT = {name = "pivot", default = 0, desc = "Pivot a grid when next print, afterward the value would be reset", range = "-30 - +30"},
     PIVOTSORT = {name = "pivotsort", default = "on", desc = "To indicate if to sort the titles when pivot option is on", range = "on,off"},
     MAXCOLS = {name = "maxcol", default = 1024, desc = "Define the max columns to be displayed in the grid", range = "4-1024"},
-    DIGITS = {name = "digits", default = 38, desc = "Define the digits for a number", range = "0 - 38"},
+    [{'SCALE','DIGITS'}] = {name = "digits", default = 38, desc = "Define the digits for a number", range = "0 - 38"},
     SEP4K = {name = "sep4k", default = "off", desc = "Define whether to show number with thousands separator", range = "on,off"},
-    HEADING = {name = "heading", default = "on", desc = "Controls printing of column headings in reports", range = "on,off"},
-    LINESIZE = {name = "linesize", default = 0, desc = "Define the max chars in one line, other overflow parts would be cutted.", range = '0-32767'},
+    [{"HEADING","HEAD"}] = {name = "heading", default = "on", desc = "Controls printing of column headings in reports", range = "on,off"},
+    [{"LINESIZE","LINES"}]= {name = "linesize", default = 0, desc = "Define the max chars in one line, other overflow parts would be cutted.", range = '0-32767'},
     BYPASSEMPTYRS = {name = "bypassemptyrs", default = "off", desc = "Controls whether to print an empty resultset", range = "on,off"},
-    PIPEQUERY = {name = "pipequery", default = "off", desc = "Controls whether to print an empty resultset", range = "on,off"},
+    PIPEQUERY = {name = "pipequery", default = "off", desc = "Controls whether to print each row one-by-one of a resultset", range = "on,off"},
 --NULL={name="null_value",default="",desc="Define display value for NULL."}
 }
 
@@ -282,7 +282,9 @@ function grid.format_column(include_head, colinfo, value, rownum,instance)
             local pre, scal = math.modf(v1)
             if grid.sep4k == "on" then
                 if v1 ~= pre then
-                    v2 = string.format_number("%,.2f", v1, 'double')
+                    local scale=grid.digits<38 and grid.digits or 2
+                    v1=math.floor(v1*math.pow(10,scale))/math.pow(10,scale)
+                    v2 = string.format_number("%,."..scale.."f", v1, 'double')
                 else
                     v2 = string.format_number("%,d", v1, 'long')
                 end
@@ -333,7 +335,10 @@ function grid:add(row)
         if not colsize[k] then colsize[k] = {0, 1} end
         is_number, v1 = grid.format_column(self.include_head, self.colinfo and self.colinfo[k] and self.colinfo[k] or {column_name = #result > 0 and result[1]._org[k] or v}, v, #result,self)
         if tostring(v) ~= tostring(v1) then v = v1 end
-        if is_number then
+        if colsize[k][3] then
+            v,v1=colsize[k][3],colsize[k][3]
+            csize=#colsize[k][3]
+        elseif is_number then
             csize = #tostring(v)
         elseif type(v) ~= "string" or v == "" then
             v = tostring(v) or ""
@@ -351,8 +356,6 @@ function grid:add(row)
                 if v=='|' then 
                     colsize[k][3]='|'
                 end
-            elseif colsize[k][3] then
-                v='|'
             end
             
             local col_wrap = grid.col_wrap
@@ -440,7 +443,7 @@ function grid:add_calc_ratio(column, adjust, name,scale)
             end
         end
     elseif type(column) == "number" then
-        self.ratio_cols[column] = adjust
+        self.ratio_cols[column] = {adjust,name or "<-Ratio",scale or 2}
     end
 end
 
